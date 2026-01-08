@@ -198,3 +198,13 @@ def test_verify_critical_data_preserved(python_processor, sample_map_file, temp_
     
     print(f"\nAll critical data verified - EXACT match!")
 
+
+
+
+
+
+
+
+
+
+

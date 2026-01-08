@@ -39,6 +39,7 @@ ASSET_ScriptList = "ScriptList"
 ASSET_Script = "Script"
 ASSET_ScriptGroup = "ScriptGroup"
 ASSET_OrCondition = "OrCondition"
+ASSET_Condition = "Condition"
 ASSET_ScriptAction = "ScriptAction"
 ASSET_ScriptActionFalse = "ScriptActionFalse"
 

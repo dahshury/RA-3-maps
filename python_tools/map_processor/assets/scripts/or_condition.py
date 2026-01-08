@@ -7,7 +7,7 @@ from typing import BinaryIO, List, TYPE_CHECKING
 
 from ...core.major_asset import MajorAsset
 from ...utils.constants import ASSET_OrCondition
-from ..scripts.script_condition import ScriptCondition
+from ..scripts.condition import Condition
 
 if TYPE_CHECKING:
     from ...core.ra3map_struct import MapDataContext
@@ -21,7 +21,7 @@ class OrCondition(MajorAsset):
     
     def __init__(self):
         super().__init__()
-        self.conditions: List[ScriptCondition] = []
+        self.conditions: List[Condition] = []
     
     def get_asset_name(self) -> str:
         return ASSET_OrCondition
@@ -36,10 +36,10 @@ class OrCondition(MajorAsset):
         """
         super().from_stream(br, context)
         
-        # Read conditions until we've consumed all data
+        # Read Condition assets until we've consumed all data
         # data_start_pos is set by base.from_stream() - use self.data_start_pos
         while br.tell() - self.data_start_pos < self.data_size:
-            condition = ScriptCondition()
+            condition = Condition()
             condition.from_stream(br, context)
             self.conditions.append(condition)
         
@@ -55,5 +55,5 @@ class OrCondition(MajorAsset):
         Based on saveData in OrCondition.cs
         """
         for condition in self.conditions:
-            condition.save_data(bw, context)
+            condition.save(bw, context)  # Use save(), not save_data(), because Condition is a MajorAsset
 

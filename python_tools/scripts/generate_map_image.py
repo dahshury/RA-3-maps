@@ -16,9 +16,11 @@ from map_processor.map_visualizer import MapVisualizer
 def main():
     parser = argparse.ArgumentParser(description='Generate images from RA3 map files')
     parser.add_argument('map_file', type=str, help='Path to .map file')
-    parser.add_argument('output_dir', type=str, nargs='?', default='.', help='Output directory (default: current directory)')
+    parser.add_argument('output_dir', type=str, nargs='?', default='test_output', help='Output directory (default: test_output)')
     parser.add_argument('--colormap', type=str, choices=['grayscale', 'terrain'], default='terrain',
                        help='Colormap for height visualization (default: terrain)')
+    parser.add_argument('--gpu', action='store_true',
+                       help='Use GPU acceleration (requires CuPy).')
     
     args = parser.parse_args()
     
@@ -35,9 +37,16 @@ def main():
     ra3map.parse()
     context = ra3map.get_context()
     
-    # Generate visualizations
+    # Generate visualizations (only comprehensive by default)
     map_name = map_path.stem
-    results = MapVisualizer.visualize_map(context, str(output_dir), map_name)
+    results = MapVisualizer.visualize_map(
+        context, 
+        str(output_dir), 
+        map_name,
+        generate_heightmap=False,  # Optional: set to True to generate heightmaps
+        generate_comprehensive=True,  # Default: generate comprehensive image
+        use_gpu=args.gpu,
+    )
     
     print(f"\nGenerated images:")
     for key, path in results.items():

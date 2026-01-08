@@ -41,3 +41,13 @@ For now, the Python tests will skip if the C# tool is not found. You can:
 See `AI_TRAINING_GUIDE.md` for examples of how to use MapCoreLib to parse and reconstruct maps.
 The C# CLI tool should wrap these operations.
 
+
+
+
+
+
+
+
+
+
+

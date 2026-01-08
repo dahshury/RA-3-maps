@@ -222,3 +222,13 @@ def test_parse_multiple_maps_with_all_assets(python_processor, all_map_files):
     for asset_type in sorted(asset_types_found):
         print(f"  - {asset_type}")
 
+
+
+
+
+
+
+
+
+
+

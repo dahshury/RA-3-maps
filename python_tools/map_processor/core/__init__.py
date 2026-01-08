@@ -8,3 +8,13 @@ from .default_major_asset import DefaultMajorAsset
 
 __all__ = ['Ra3Map', 'Ra3MapStruct', 'MapDataContext', 'MajorAsset', 'DefaultMajorAsset']
 
+
+
+
+
+
+
+
+
+
+

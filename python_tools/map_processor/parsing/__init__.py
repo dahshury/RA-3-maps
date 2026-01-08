@@ -6,3 +6,13 @@ from .map_reconstructor import Ra3MapReconstructor
 
 __all__ = ['Ra3MapParser', 'Ra3MapReconstructor']
 
+
+
+
+
+
+
+
+
+
+

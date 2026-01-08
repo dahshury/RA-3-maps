@@ -162,3 +162,13 @@ def test_asset_data_preservation(python_processor, sample_map_file, temp_directo
     
     print(f"\nSUCCESS: All asset types and counts match!")
 
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,3190 @@
+{
+  "maps_scanned": 72,
+  "unique_types_in_maps": 1714,
+  "unique_type_like_strings_in_code": 495,
+  "by_category_drawn": [
+    [
+      "SovietBuilding",
+      6340
+    ],
+    [
+      "OreNode",
+      1358
+    ],
+    [
+      "GarrisonOther",
+      905
+    ],
+    [
+      "SnowyBuilding",
+      859
+    ],
+    [
+      "BuildingOther",
+      741
+    ],
+    [
+      "House",
+      307
+    ],
+    [
+      "OilDerrick",
+      255
+    ],
+    [
+      "TikiHut",
+      187
+    ],
+    [
+      "PortStructure",
+      183
+    ],
+    [
+      "ConstructionYard",
+      142
+    ],
+    [
+      "CargoContainer",
+      133
+    ],
+    [
+      "ObservationPost",
+      131
+    ],
+    [
+      "Hospital",
+      79
+    ],
+    [
+      "Shipyard",
+      74
+    ],
+    [
+      "SupplyBuilding",
+      59
+    ],
+    [
+      "Garage",
+      51
+    ],
+    [
+      "ConventionCenter",
+      27
+    ],
+    [
+      "VeterancyStructure",
+      21
+    ],
+    [
+      "Warehouse",
+      13
+    ],
+    [
+      "PowerPlant",
+      7
+    ],
+    [
+      "MilitaryBuilding",
+      1
+    ]
+  ],
+  "unknown_buildingish": [],
+  "dropped_buildingish": [],
+  "code_referenced_map_types": [],
+  "map_only_types": [
+    {
+      "type": "AP_SNOWYCARGOCONTAINER02",
+      "count": 1
+    },
+    {
+      "type": "AP_SNOWYPROPANETANK01",
+      "count": 1
+    },
+    {
+      "type": "AP_SNOWYSUPPLIES02",
+      "count": 1
+    },
+    {
+      "type": "AP_SNOWYSUPPLYBOX01",
+      "count": 1
+    },
+    {
+      "type": "AP_SUPPLYBOX01",
+      "count": 19
+    },
+    {
+      "type": "AirportTechStructure",
+      "count": 10
+    },
+    {
+      "type": "AmbStream_MilitaryBase_Quad",
+      "count": 1
+    },
+    {
+      "type": "Amb_ChurchBellStereo1",
+      "count": 2
+    },
+    {
+      "type": "Amb_ChurchBellStereo2",
+      "count": 3
+    },
+    {
+      "type": "Amb_Restaurant1",
+      "count": 6
+    },
+    {
+      "type": "Amb_TentFlap1",
+      "count": 42
+    },
+    {
+      "type": "Amb_TentFlap2",
+      "count": 36
+    },
+    {
+      "type": "Amb_VillageHimilayanStereo",
+      "count": 2
+    },
+    {
+      "type": "BB_HOTEL_02",
+      "count": 6
+    },
+    {
+      "type": "BB_Hotel_01_01",
+      "count": 7
+    },
+    {
+      "type": "BB_Hotel_01_02",
+      "count": 3
+    },
+    {
+      "type": "BB_Restaurant_01",
+      "count": 7
+    },
+    {
+      "type": "BB_hotel_02",
+      "count": 2
+    },
+    {
+      "type": "BB_hotel_02_01",
+      "count": 6
+    },
+    {
+      "type": "BB_hotel_02_02",
+      "count": 6
+    },
+    {
+      "type": "BB_hotel_02_03",
+      "count": 4
+    },
+    {
+      "type": "CAMP_PowerStore_AlliedBomberDrop",
+      "count": 1
+    },
+    {
+      "type": "CAPECOD_HOUSE01B",
+      "count": 7
+    },
+    {
+      "type": "CA_Hotel_01",
+      "count": 12
+    },
+    {
+      "type": "CA_Hotel_02",
+      "count": 4
+    },
+    {
+      "type": "CA_Hotel_03",
+      "count": 2
+    },
+    {
+      "type": "CA_Hotel_04",
+      "count": 8
+    },
+    {
+      "type": "CA_PortStructure",
+      "count": 12
+    },
+    {
+      "type": "CCHOUSE02",
+      "count": 13
+    },
+    {
+      "type": "CCHOUSE02D",
+      "count": 1
+    },
+    {
+      "type": "CCHOUSE03",
+      "count": 2
+    },
+    {
+      "type": "CCHOUSE03B",
+      "count": 1
+    },
+    {
+      "type": "CCHOUSE03D",
+      "count": 2
+    },
+    {
+      "type": "CCHouse02b",
+      "count": 1
+    },
+    {
+      "type": "CCHouse02c",
+      "count": 2
+    },
+    {
+      "type": "CCHouse02d",
+      "count": 1
+    },
+    {
+      "type": "CCHouse03b",
+      "count": 2
+    },
+    {
+      "type": "CCHouse03c",
+      "count": 11
+    },
+    {
+      "type": "CCHouse03d",
+      "count": 2
+    },
+    {
+      "type": "CC_Lighthouse01",
+      "count": 8
+    },
+    {
+      "type": "CapeCod_House01",
+      "count": 7
+    },
+    {
+      "type": "CapeCod_House01b",
+      "count": 2
+    },
+    {
+      "type": "CapeCod_House01c",
+      "count": 1
+    },
+    {
+      "type": "CapeCod_House01d",
+      "count": 1
+    },
+    {
+      "type": "DCBCARGO01",
+      "count": 3
+    },
+    {
+      "type": "DCBCARGO03",
+      "count": 1
+    },
+    {
+      "type": "DCBCARGO05",
+      "count": 3
+    },
+    {
+      "type": "DCBCARGO06",
+      "count": 3
+    },
+    {
+      "type": "EI_EasterIslandHeadDefense",
+      "count": 17
+    },
+    {
+      "type": "EI_LAVABASE",
+      "count": 2
+    },
+    {
+      "type": "EI_Structure_01",
+      "count": 36
+    },
+    {
+      "type": "EI_Structure_02",
+      "count": 22
+    },
+    {
+      "type": "EI_Structure_03",
+      "count": 6
+    },
+    {
+      "type": "EI_Structure_04",
+      "count": 22
+    },
+    {
+      "type": "FI_Building01",
+      "count": 35
+    },
+    {
+      "type": "FI_Building02",
+      "count": 23
+    },
+    {
+      "type": "FI_STRUCTURE_05",
+      "count": 9
+    },
+    {
+      "type": "FI_STRUCTURE_07",
+      "count": 11
+    },
+    {
+      "type": "FI_STRUCTURE_08",
+      "count": 1
+    },
+    {
+      "type": "FI_Structure_01",
+      "count": 1
+    },
+    {
+      "type": "FI_Structure_02",
+      "count": 35
+    },
+    {
+      "type": "FI_Structure_03",
+      "count": 5
+    },
+    {
+      "type": "FI_Structure_04",
+      "count": 7
+    },
+    {
+      "type": "FI_Structure_05",
+      "count": 8
+    },
+    {
+      "type": "FI_Structure_06",
+      "count": 9
+    },
+    {
+      "type": "FI_Structure_07",
+      "count": 4
+    },
+    {
+      "type": "GE_Apartment01",
+      "count": 9
+    },
+    {
+      "type": "GE_TOWNHOUSE01",
+      "count": 12
+    },
+    {
+      "type": "GI_AIRPORTLIGHT",
+      "count": 70
+    },
+    {
+      "type": "GI_Apartment_01",
+      "count": 11
+    },
+    {
+      "type": "GI_Apartment_02",
+      "count": 2
+    },
+    {
+      "type": "GI_Apartment_03",
+      "count": 9
+    },
+    {
+      "type": "GI_Apartment_04",
+      "count": 9
+    },
+    {
+      "type": "GI_Hotel",
+      "count": 10
+    },
+    {
+      "type": "GI_Hotel_01",
+      "count": 24
+    },
+    {
+      "type": "GI_Hotel_02",
+      "count": 3
+    },
+    {
+      "type": "GI_Lighthouse_01",
+      "count": 2
+    },
+    {
+      "type": "GI_Tower_01",
+      "count": 2
+    },
+    {
+      "type": "GI_Warehouse_01",
+      "count": 9
+    },
+    {
+      "type": "GV_FORTUNETENT01",
+      "count": 1
+    },
+    {
+      "type": "GV_Restaurant_01",
+      "count": 11
+    },
+    {
+      "type": "GV_Tent01",
+      "count": 3
+    },
+    {
+      "type": "GV_Tent02",
+      "count": 3
+    },
+    {
+      "type": "GarageTechStructure",
+      "count": 51
+    },
+    {
+      "type": "HA_BUILDING16",
+      "count": 12
+    },
+    {
+      "type": "HA_Building16_02",
+      "count": 28
+    },
+    {
+      "type": "HA_Building16_03",
+      "count": 20
+    },
+    {
+      "type": "HB_CASTLETOWER_01",
+      "count": 8
+    },
+    {
+      "type": "HB_Church",
+      "count": 5
+    },
+    {
+      "type": "HB_HOUSE04",
+      "count": 39
+    },
+    {
+      "type": "HB_House01",
+      "count": 5
+    },
+    {
+      "type": "HB_House02",
+      "count": 13
+    },
+    {
+      "type": "HB_House03",
+      "count": 21
+    },
+    {
+      "type": "HB_Restaurant01",
+      "count": 14
+    },
+    {
+      "type": "HB_Restaurant_03",
+      "count": 16
+    },
+    {
+      "type": "HB_Restaurant_04",
+      "count": 21
+    },
+    {
+      "type": "HB_Rowhouse01",
+      "count": 25
+    },
+    {
+      "type": "HV_Apartment01",
+      "count": 13
+    },
+    {
+      "type": "HV_HOTEL02",
+      "count": 3
+    },
+    {
+      "type": "HV_HOTEL03",
+      "count": 2
+    },
+    {
+      "type": "HV_HOTEL04",
+      "count": 3
+    },
+    {
+      "type": "HV_HOTEL05",
+      "count": 3
+    },
+    {
+      "type": "HV_HOTEL06",
+      "count": 1
+    },
+    {
+      "type": "HV_HOTEL07",
+      "count": 2
+    },
+    {
+      "type": "HV_HOTEL08",
+      "count": 3
+    },
+    {
+      "type": "HV_HOTEL09",
+      "count": 1
+    },
+    {
+      "type": "HV_Hotel01_03",
+      "count": 1
+    },
+    {
+      "type": "HV_Hotel10",
+      "count": 2
+    },
+    {
+      "type": "HV_Shop01",
+      "count": 1
+    },
+    {
+      "type": "HV_Shop02",
+      "count": 1
+    },
+    {
+      "type": "HV_Shop03",
+      "count": 2
+    },
+    {
+      "type": "HospitalTechStructure",
+      "count": 79
+    },
+    {
+      "type": "IL_STRUCTURE_02",
+      "count": 8
+    },
+    {
+      "type": "IL_STRUCTURE_04",
+      "count": 10
+    },
+    {
+      "type": "IL_Structure_01",
+      "count": 13
+    },
+    {
+      "type": "IL_Structure_02",
+      "count": 8
+    },
+    {
+      "type": "IL_Structure_03",
+      "count": 12
+    },
+    {
+      "type": "IL_Structure_04",
+      "count": 4
+    },
+    {
+      "type": "KR_Structure_01",
+      "count": 7
+    },
+    {
+      "type": "KR_Structure_04",
+      "count": 7
+    },
+    {
+      "type": "KR_Structure_05",
+      "count": 6
+    },
+    {
+      "type": "KR_Structure_06",
+      "count": 7
+    },
+    {
+      "type": "KremlinSnowyTracks01",
+      "count": 714
+    },
+    {
+      "type": "MJ_BuildingStilts01",
+      "count": 14
+    },
+    {
+      "type": "MJ_BuildingWoods01",
+      "count": 18
+    },
+    {
+      "type": "MJ_BuildingWoods02",
+      "count": 14
+    },
+    {
+      "type": "MJ_GUARDHOUSE01",
+      "count": 4
+    },
+    {
+      "type": "MJ_Structure_01",
+      "count": 10
+    },
+    {
+      "type": "MJ_Structure_02",
+      "count": 18
+    },
+    {
+      "type": "MJ_Structure_03",
+      "count": 14
+    },
+    {
+      "type": "MJ_Structure_04",
+      "count": 27
+    },
+    {
+      "type": "MY_Apartment01",
+      "count": 22
+    },
+    {
+      "type": "MY_Church_01",
+      "count": 6
+    },
+    {
+      "type": "MY_Church_02",
+      "count": 8
+    },
+    {
+      "type": "MY_Hotel_01",
+      "count": 20
+    },
+    {
+      "type": "MY_House_01",
+      "count": 18
+    },
+    {
+      "type": "MY_House_03",
+      "count": 22
+    },
+    {
+      "type": "MY_House_04",
+      "count": 24
+    },
+    {
+      "type": "MY_Restaurant_01",
+      "count": 18
+    },
+    {
+      "type": "MY_Restaurant_02",
+      "count": 4
+    },
+    {
+      "type": "MY_Restaurant_03",
+      "count": 6
+    },
+    {
+      "type": "MY_Restaurant_04",
+      "count": 1
+    },
+    {
+      "type": "MtFujiBuildingTrim01",
+      "count": 8
+    },
+    {
+      "type": "OD_Tower01",
+      "count": 6
+    },
+    {
+      "type": "OD_Warehouse01",
+      "count": 4
+    },
+    {
+      "type": "ObservationPostTechStructure",
+      "count": 131
+    },
+    {
+      "type": "OilDerrick",
+      "count": 194
+    },
+    {
+      "type": "OilDerrick_OnWater",
+      "count": 61
+    },
+    {
+      "type": "OreNode",
+      "count": 1177
+    },
+    {
+      "type": "RM_Building01",
+      "count": 14
+    },
+    {
+      "type": "RM_BuildingCoastal01",
+      "count": 8
+    },
+    {
+      "type": "RM_BuildingCoastal02",
+      "count": 8
+    },
+    {
+      "type": "RM_BuildingCoastal03",
+      "count": 12
+    },
+    {
+      "type": "RM_BuildingStone",
+      "count": 12
+    },
+    {
+      "type": "RM_CastleTower01",
+      "count": 87
+    },
+    {
+      "type": "RM_GRAVEYARD01",
+      "count": 31
+    },
+    {
+      "type": "RM_GRAVEYARD02",
+      "count": 44
+    },
+    {
+      "type": "RM_GRAVEYARD03",
+      "count": 31
+    },
+    {
+      "type": "RM_GRAVEYARD04",
+      "count": 36
+    },
+    {
+      "type": "RM_StagTower01",
+      "count": 9
+    },
+    {
+      "type": "SA_CHURCH01",
+      "count": 4
+    },
+    {
+      "type": "SA_HOUSE01",
+      "count": 16
+    },
+    {
+      "type": "SA_HOUSE02",
+      "count": 20
+    },
+    {
+      "type": "SA_HOUSE04",
+      "count": 14
+    },
+    {
+      "type": "SA_House02_02",
+      "count": 1
+    },
+    {
+      "type": "SA_House02_03",
+      "count": 1
+    },
+    {
+      "type": "SA_House02_04",
+      "count": 1
+    },
+    {
+      "type": "SA_House03_02",
+      "count": 5
+    },
+    {
+      "type": "SA_IceCreamShop",
+      "count": 2
+    },
+    {
+      "type": "SA_STORE02",
+      "count": 3
+    },
+    {
+      "type": "SA_STORE03",
+      "count": 6
+    },
+    {
+      "type": "SA_TireShop",
+      "count": 2
+    },
+    {
+      "type": "SN_BuildingSnowy03",
+      "count": 2
+    },
+    {
+      "type": "SN_BuildingSnowy05",
+      "count": 6
+    },
+    {
+      "type": "SP_CARGOCONTAINER01",
+      "count": 16
+    },
+    {
+      "type": "SP_CARGOCONTAINER02",
+      "count": 16
+    },
+    {
+      "type": "SP_SNOWYCARGOCONTAINER01",
+      "count": 9
+    },
+    {
+      "type": "SP_SNOWYCARGOCONTAINER02",
+      "count": 4
+    },
+    {
+      "type": "SP_SNOWYCARGOCONTAINER03",
+      "count": 2
+    },
+    {
+      "type": "SP_SNOWYCARGOCONTAINER04",
+      "count": 5
+    },
+    {
+      "type": "SP_SNOWYCARGOCONTAINER05",
+      "count": 8
+    },
+    {
+      "type": "SP_SNOWYPROPANETANK01",
+      "count": 16
+    },
+    {
+      "type": "SP_SNOWYSUPPLIES01",
+      "count": 6
+    },
+    {
+      "type": "SP_SNOWYSUPPLIES02",
+      "count": 21
+    },
+    {
+      "type": "SP_SNOWYSUPPLIES03",
+      "count": 32
+    },
+    {
+      "type": "SP_SNOWYSUPPLYBOX01",
+      "count": 30
+    },
+    {
+      "type": "SP_SUPPLYBOX01",
+      "count": 40
+    },
+    {
+      "type": "SS_CONTAINER01",
+      "count": 1
+    },
+    {
+      "type": "SS_OREPILE02",
+      "count": 181
+    },
+    {
+      "type": "ST_BUSSTOP",
+      "count": 45
+    },
+    {
+      "type": "ST_Building01",
+      "count": 6
+    },
+    {
+      "type": "ST_Building03",
+      "count": 8
+    },
+    {
+      "type": "ST_CARGOCONTAINER01",
+      "count": 6
+    },
+    {
+      "type": "ST_CARGOCONTAINER02",
+      "count": 4
+    },
+    {
+      "type": "ST_CARGOCONTAINER03",
+      "count": 14
+    },
+    {
+      "type": "ST_CARGOCONTAINER04",
+      "count": 18
+    },
+    {
+      "type": "ST_CARGOCONTAINER05",
+      "count": 18
+    },
+    {
+      "type": "ST_Church_01",
+      "count": 2
+    },
+    {
+      "type": "ST_LIGHT01",
+      "count": 168
+    },
+    {
+      "type": "ST_MAILBOX",
+      "count": 34
+    },
+    {
+      "type": "ST_PLANT01",
+      "count": 436
+    },
+    {
+      "type": "ST_PLANT02",
+      "count": 570
+    },
+    {
+      "type": "ST_PLANT03",
+      "count": 322
+    },
+    {
+      "type": "ST_PLANT04",
+      "count": 159
+    },
+    {
+      "type": "ST_PLANT05",
+      "count": 168
+    },
+    {
+      "type": "ST_PLANT06",
+      "count": 614
+    },
+    {
+      "type": "ST_PLANT07",
+      "count": 352
+    },
+    {
+      "type": "ST_PLANT08",
+      "count": 102
+    },
+    {
+      "type": "ST_PLANT09",
+      "count": 1842
+    },
+    {
+      "type": "ST_PLANT10",
+      "count": 340
+    },
+    {
+      "type": "ST_PLANT11",
+      "count": 306
+    },
+    {
+      "type": "ST_PLANTER01",
+      "count": 96
+    },
+    {
+      "type": "ST_PLANTER02",
+      "count": 59
+    },
+    {
+      "type": "ST_SIDEWALKSEGMENT01",
+      "count": 15
+    },
+    {
+      "type": "ST_SOVIETCRATE01",
+      "count": 88
+    },
+    {
+      "type": "ST_SOVIETCRATE02",
+      "count": 77
+    },
+    {
+      "type": "ST_TENT01",
+      "count": 3
+    },
+    {
+      "type": "ST_TENT02",
+      "count": 4
+    },
+    {
+      "type": "ST_TENT03",
+      "count": 4
+    },
+    {
+      "type": "ST_building05",
+      "count": 4
+    },
+    {
+      "type": "SV_Building01",
+      "count": 6
+    },
+    {
+      "type": "SV_Building03",
+      "count": 3
+    },
+    {
+      "type": "SV_Building04",
+      "count": 2
+    },
+    {
+      "type": "SV_Building05",
+      "count": 11
+    },
+    {
+      "type": "SV_Building06",
+      "count": 9
+    },
+    {
+      "type": "SV_Building07",
+      "count": 7
+    },
+    {
+      "type": "SV_Building08",
+      "count": 8
+    },
+    {
+      "type": "SV_BuildingPCamp02",
+      "count": 3
+    },
+    {
+      "type": "SV_BuildingPCampShack01",
+      "count": 2
+    },
+    {
+      "type": "SV_Clocktower",
+      "count": 1
+    },
+    {
+      "type": "SV_Planter01",
+      "count": 247
+    },
+    {
+      "type": "SV_SWoodPile01",
+      "count": 6
+    },
+    {
+      "type": "SV_Shrub01",
+      "count": 120
+    },
+    {
+      "type": "SV_Snowman",
+      "count": 33
+    },
+    {
+      "type": "SV_Windmill",
+      "count": 9
+    },
+    {
+      "type": "SV_WoodPile01",
+      "count": 65
+    },
+    {
+      "type": "ShipYardTechStructure",
+      "count": 74
+    },
+    {
+      "type": "SovietPowerPlantAdvanced",
+      "count": 7
+    },
+    {
+      "type": "TH_BUILDING_01",
+      "count": 4
+    },
+    {
+      "type": "TH_BUILDING_02",
+      "count": 3
+    },
+    {
+      "type": "TH_Building_03",
+      "count": 2
+    },
+    {
+      "type": "TH_Building_04",
+      "count": 2
+    },
+    {
+      "type": "TH_Building_06",
+      "count": 1
+    },
+    {
+      "type": "TH_Building_07",
+      "count": 7
+    },
+    {
+      "type": "TH_Building_08",
+      "count": 2
+    },
+    {
+      "type": "TH_convention_center01",
+      "count": 7
+    },
+    {
+      "type": "TH_convention_center02",
+      "count": 20
+    },
+    {
+      "type": "TH_office_building01",
+      "count": 18
+    },
+    {
+      "type": "TH_office_building02",
+      "count": 17
+    },
+    {
+      "type": "TH_office_building03",
+      "count": 15
+    },
+    {
+      "type": "TH_office_building04",
+      "count": 18
+    },
+    {
+      "type": "VL_Building01",
+      "count": 12
+    },
+    {
+      "type": "VL_Building02",
+      "count": 22
+    },
+    {
+      "type": "VL_Building03",
+      "count": 18
+    },
+    {
+      "type": "VL_Building05",
+      "count": 12
+    },
+    {
+      "type": "VL_CARGOCONTAINER01",
+      "count": 10
+    },
+    {
+      "type": "VL_CARGOCONTAINER02",
+      "count": 3
+    },
+    {
+      "type": "VL_CARGOCONTAINER03",
+      "count": 2
+    },
+    {
+      "type": "VL_CARGOCONTAINER04",
+      "count": 2
+    },
+    {
+      "type": "VL_CARGOCONTAINER05",
+      "count": 13
+    },
+    {
+      "type": "VL_building04",
+      "count": 16
+    },
+    {
+      "type": "VeterancyTechStructure",
+      "count": 21
+    },
+    {
+      "type": "YP_Cabin",
+      "count": 33
+    },
+    {
+      "type": "YP_Camper01",
+      "count": 24
+    },
+    {
+      "type": "YP_PortoPotty",
+      "count": 91
+    },
+    {
+      "type": "YP_RSTATION",
+      "count": 17
+    },
+    {
+      "type": "YP_TENT01",
+      "count": 67
+    },
+    {
+      "type": "YP_TENT02",
+      "count": 55
+    },
+    {
+      "type": "YP_WatchTower",
+      "count": 19
+    },
+    {
+      "type": "YU_BEACHHUT01",
+      "count": 37
+    },
+    {
+      "type": "YU_BUNGALOW01",
+      "count": 27
+    },
+    {
+      "type": "YU_BUNGALOW02",
+      "count": 17
+    },
+    {
+      "type": "YU_HOTEL01",
+      "count": 7
+    },
+    {
+      "type": "YU_HOTEL02",
+      "count": 2
+    },
+    {
+      "type": "YU_HOTEL03",
+      "count": 16
+    },
+    {
+      "type": "YU_HOTEL04",
+      "count": 2
+    },
+    {
+      "type": "YU_ShuttleBus01",
+      "count": 4
+    },
+    {
+      "type": "YU_TikiHut01",
+      "count": 187
+    }
+  ],
+  "code_only_types": [
+    {
+      "type": "A01TH01",
+      "count": 2
+    },
+    {
+      "type": "ALLOW_DISALLOW_ONE_BUILDING",
+      "count": 6
+    },
+    {
+      "type": "ALLOW_DISALLOW_ONE_UPGRADE",
+      "count": 3
+    },
+    {
+      "type": "APPDATA",
+      "count": 6
+    },
+    {
+      "type": "AT-Base01",
+      "count": 2
+    },
+    {
+      "type": "ATTACK_MOVE_ISSUED",
+      "count": 2
+    },
+    {
+      "type": "ATTACK_MOVE_NAMED_UNIT_TO",
+      "count": 2
+    },
+    {
+      "type": "ATTACK_MOVE_TEAM_TO",
+      "count": 2
+    },
+    {
+      "type": "ATTACK_MOVE_TEAM_TO_NAMED_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "ATTACK_MOVE_TEAM_TO_NEAREST_OBJECT_OF_TYPE_OF_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "AUDIO_POP_MUSIC",
+      "count": 2
+    },
+    {
+      "type": "AUTOSAVE:ALLIESCAMPAIGN",
+      "count": 2
+    },
+    {
+      "type": "AUX",
+      "count": 1
+    },
+    {
+      "type": "BIG4",
+      "count": 1
+    },
+    {
+      "type": "BIGF",
+      "count": 1
+    },
+    {
+      "type": "BUILDING_GARRISONNED_BY_OBJECT_TYPE",
+      "count": 2
+    },
+    {
+      "type": "BUILT_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "CALL_SUBROUTINE",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_BLOOM_EFFECT_BEGIN",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_ENTERED_AREA",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_FOLLOW_NAMED",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_LETTERBOX_BEGIN",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_LETTERBOX_BEGIN_WITH_RADAR",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_LETTERBOX_END",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_ROTATE_DISTANCE",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_SCROLL_DISTANCE",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_STOP_FOLLOW",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_STOP_TETHER_NAMED",
+      "count": 2
+    },
+    {
+      "type": "CAMERA_ZOOM_DISTANCE",
+      "count": 2
+    },
+    {
+      "type": "CAMPAIGN_CREATE_AUTO_SAVE",
+      "count": 2
+    },
+    {
+      "type": "CH1",
+      "count": 2
+    },
+    {
+      "type": "CNB",
+      "count": 2
+    },
+    {
+      "type": "CNCBigFile",
+      "count": 2
+    },
+    {
+      "type": "COM1",
+      "count": 1
+    },
+    {
+      "type": "COM2",
+      "count": 1
+    },
+    {
+      "type": "COM3",
+      "count": 1
+    },
+    {
+      "type": "COM4",
+      "count": 1
+    },
+    {
+      "type": "COM5",
+      "count": 1
+    },
+    {
+      "type": "COM6",
+      "count": 1
+    },
+    {
+      "type": "COM7",
+      "count": 1
+    },
+    {
+      "type": "COM8",
+      "count": 1
+    },
+    {
+      "type": "COM9",
+      "count": 1
+    },
+    {
+      "type": "CON",
+      "count": 1
+    },
+    {
+      "type": "CONDITION_TRUE",
+      "count": 11
+    },
+    {
+      "type": "COUNTER",
+      "count": 3
+    },
+    {
+      "type": "COUNTER_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "COUNTER_MATH_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "COUNTER_MATH_VALUE",
+      "count": 2
+    },
+    {
+      "type": "COUNTER_SECONDS",
+      "count": 2
+    },
+    {
+      "type": "CREATE_NAMED_ON_TEAM_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "CREATE_NAMED_ON_TEAM_AT_WAYPOINT_WITH_ORIENTATION",
+      "count": 2
+    },
+    {
+      "type": "CREATE_REINFORCEMENT_TEAM",
+      "count": 2
+    },
+    {
+      "type": "CREATE_REINFORCEMENT_TEAM_AT_UNIT_POSITION",
+      "count": 2
+    },
+    {
+      "type": "CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT_WITH_ORIENTATION",
+      "count": 2
+    },
+    {
+      "type": "CSK",
+      "count": 2
+    },
+    {
+      "type": "CURRENT_PLATFORM",
+      "count": 2
+    },
+    {
+      "type": "Cliff_CapeCod01",
+      "count": 2
+    },
+    {
+      "type": "Cliff_CapeCod02",
+      "count": 2
+    },
+    {
+      "type": "Cliff_CapeCod03",
+      "count": 2
+    },
+    {
+      "type": "Cliff_CapeCod04",
+      "count": 2
+    },
+    {
+      "type": "Cliff_CapeCod05",
+      "count": 2
+    },
+    {
+      "type": "DAMAGE_MEMBERS_OF_TEAM",
+      "count": 2
+    },
+    {
+      "type": "DC1",
+      "count": 2
+    },
+    {
+      "type": "DECREMENT_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "DEFEAT",
+      "count": 2
+    },
+    {
+      "type": "DESELECT",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_BORDER_SHROUD",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_COUNTDOWN_TIMER_DISPLAY",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_INPUT",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_JOYPAD_COMMANDBAR_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_MOUSE_HUD_FIXED_ELEMENT",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_SCRIPT",
+      "count": 4
+    },
+    {
+      "type": "DISABLE_UI_BUILD_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "DISABLE_UI_UNIT_ABILITY_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "DISGUISED",
+      "count": 2
+    },
+    {
+      "type": "DISPLAY_COUNTDOWN_TIMER",
+      "count": 2
+    },
+    {
+      "type": "DISPLAY_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "DISPLAY_TUTORIAL_TEXT",
+      "count": 2
+    },
+    {
+      "type": "EMOTION_CELEBRATING",
+      "count": 2
+    },
+    {
+      "type": "EMP",
+      "count": 2
+    },
+    {
+      "type": "EMP1",
+      "count": 2
+    },
+    {
+      "type": "ENABLE_COUNTDOWN_TIMER_DISPLAY",
+      "count": 2
+    },
+    {
+      "type": "ENABLE_HOUSE_COLOR",
+      "count": 2
+    },
+    {
+      "type": "ENABLE_INPUT",
+      "count": 2
+    },
+    {
+      "type": "ENABLE_SCRIPT",
+      "count": 4
+    },
+    {
+      "type": "ENEMY_SIGHTED",
+      "count": 2
+    },
+    {
+      "type": "ENEMY_SIGHTED_BY_TEAM",
+      "count": 2
+    },
+    {
+      "type": "EVA_SET_ENABLED_DISABLED",
+      "count": 2
+    },
+    {
+      "type": "EXIT_SPECIFIC_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "FADE_IN_FROM_BLACK",
+      "count": 2
+    },
+    {
+      "type": "FADE_OUT_TO_BLACK",
+      "count": 2
+    },
+    {
+      "type": "FIRE_SPECIAL_POWER_ON_NEAREST_OBJECTTYPE_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "FIRE_SPECIAL_POWER_ON_TEAM",
+      "count": 2
+    },
+    {
+      "type": "FLAG",
+      "count": 2
+    },
+    {
+      "type": "FLASH_JOYPAD_COMMANDBAR_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "FLASH_JOYPAD_HUD_FIXED_ELEMENT",
+      "count": 2
+    },
+    {
+      "type": "FLASH_MOUSE_HUD_FIXED_ELEMENT",
+      "count": 2
+    },
+    {
+      "type": "FLASH_UI_BUILD_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "FLASH_UI_PLAYER_POWER_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "FLASH_UI_UNIT_ABILITY_BUTTON",
+      "count": 2
+    },
+    {
+      "type": "FREEZE_TIME",
+      "count": 2
+    },
+    {
+      "type": "FST",
+      "count": 2
+    },
+    {
+      "type": "GIVE_PLAYER_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "GT1",
+      "count": 2
+    },
+    {
+      "type": "HAS_FINISHED_AUDIO",
+      "count": 2
+    },
+    {
+      "type": "HAS_FINISHED_VIDEO",
+      "count": 2
+    },
+    {
+      "type": "HIDE_COUNTDOWN_TIMER",
+      "count": 2
+    },
+    {
+      "type": "HIDE_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "HIDE_TUTORIAL_TEXT",
+      "count": 2
+    },
+    {
+      "type": "HIDE_UI",
+      "count": 2
+    },
+    {
+      "type": "HUMAN_IMPASSABLE_AREA",
+      "count": 2
+    },
+    {
+      "type": "INCREMENT_COUNTER",
+      "count": 4
+    },
+    {
+      "type": "J06TH01",
+      "count": 2
+    },
+    {
+      "type": "JIANGJ1.1",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_HOT_SPOT_TO_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_HOT_SPOT_TO_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_OBJECTIVE_TO_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_OBJECTIVE_TO_OBJECT_WITH_CATEGORY",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_OBJECTIVE_TO_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "LINK_MISSION_OBJECTIVE_TO_WAYPOINT_WITH_CATEGORY",
+      "count": 2
+    },
+    {
+      "type": "LOCALDEFEAT",
+      "count": 2
+    },
+    {
+      "type": "LOCK_CAMERA_SCROLL",
+      "count": 2
+    },
+    {
+      "type": "LPT1",
+      "count": 1
+    },
+    {
+      "type": "LPT2",
+      "count": 1
+    },
+    {
+      "type": "LPT3",
+      "count": 1
+    },
+    {
+      "type": "LPT4",
+      "count": 1
+    },
+    {
+      "type": "LPT5",
+      "count": 1
+    },
+    {
+      "type": "LPT6",
+      "count": 1
+    },
+    {
+      "type": "LPT7",
+      "count": 1
+    },
+    {
+      "type": "LPT8",
+      "count": 1
+    },
+    {
+      "type": "LPT9",
+      "count": 1
+    },
+    {
+      "type": "LookupTable",
+      "count": 3
+    },
+    {
+      "type": "MA01_CoGiles02",
+      "count": 2
+    },
+    {
+      "type": "MA03_AlliedMCV01",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_ALL",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_ALL_PERM",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_ALL_UNDO_PERM",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_PERMANENTLY_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "MAP_REVEAL_PERMANENTLY_IN_TRIGGER",
+      "count": 2
+    },
+    {
+      "type": "MAP_SHROUD_ALL",
+      "count": 2
+    },
+    {
+      "type": "MAP_SHROUD_SET_RESHROUD_TIME",
+      "count": 2
+    },
+    {
+      "type": "MAP_SWITCH_BORDER",
+      "count": 2
+    },
+    {
+      "type": "MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "MAP_UNDO_REVEAL_PERMANENTLY_IN_TRIGGER",
+      "count": 2
+    },
+    {
+      "type": "MARK_MISSION_OBJECTIVE_COMPLETED",
+      "count": 2
+    },
+    {
+      "type": "MARK_MISSION_OBJECTIVE_NOT_COMPLETED",
+      "count": 2
+    },
+    {
+      "type": "MISSION_HOT_SPOT_ACTIVE",
+      "count": 2
+    },
+    {
+      "type": "MOVE_CAMERA_TO",
+      "count": 2
+    },
+    {
+      "type": "MOVE_NAMED_UNIT_TO",
+      "count": 2
+    },
+    {
+      "type": "MOVE_TEAM_TO",
+      "count": 2
+    },
+    {
+      "type": "MOVIE_PLAY_RADAR",
+      "count": 2
+    },
+    {
+      "type": "MUSIC_SET_TRACK",
+      "count": 2
+    },
+    {
+      "type": "MUSIC_SET_VOLUME",
+      "count": 2
+    },
+    {
+      "type": "Misc_Blackedge",
+      "count": 2
+    },
+    {
+      "type": "MyMod",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACKED_BY_OBJECTTYPE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACKED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACK_AREA",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACK_FOLLOW_WAYPOINTS",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACK_NAMED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ATTACK_TEAM",
+      "count": 2
+    },
+    {
+      "type": "NAMED_BUILDING_IS_EMPTY",
+      "count": 2
+    },
+    {
+      "type": "NAMED_CUSTOM_COLOR",
+      "count": 2
+    },
+    {
+      "type": "NAMED_DAMAGE",
+      "count": 3
+    },
+    {
+      "type": "NAMED_DELETE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_DESTROYED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_DESTROYED_BY_OBJECTTYPE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_DISCOVERED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_DYING",
+      "count": 2
+    },
+    {
+      "type": "NAMED_ENTER_NAMED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_EXITED_AREA",
+      "count": 2
+    },
+    {
+      "type": "NAMED_EXIT_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FACE_NAMED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FACE_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FIRE_SPECIAL_POWER_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FLASH",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FLASH_WHITE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FOLLOW_WAYPOINTS",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FOLLOW_WAYPOINTS_EXACT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FOLLOW_WAYPOINTS_STARTING_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FORCE_ATTACK_NAMED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_FORCE_ATTACK_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_GARRISON_SPECIFIC_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "NAMED_GARRISON_SPECIFIC_BUILDING_INSTANTLY",
+      "count": 2
+    },
+    {
+      "type": "NAMED_HAS_KILLED_COMPARISON_UNIT_TYPE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_HUNT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_INSIDE_AREA",
+      "count": 2
+    },
+    {
+      "type": "NAMED_KILL",
+      "count": 2
+    },
+    {
+      "type": "NAMED_NOT_DESTROYED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_OUTLINE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_OUTSIDE_AREA",
+      "count": 2
+    },
+    {
+      "type": "NAMED_OWNED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "NAMED_REACHED_WAYPOINTS_END",
+      "count": 2
+    },
+    {
+      "type": "NAMED_RECEIVE_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_REMOVE_INFOBOX",
+      "count": 2
+    },
+    {
+      "type": "NAMED_REMOVE_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "NAMED_SELECTED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_SET_DISABLED",
+      "count": 2
+    },
+    {
+      "type": "NAMED_SET_MAX_HEALTH",
+      "count": 2
+    },
+    {
+      "type": "NAMED_SET_SPECIAL_POWER_COUNTDOWN",
+      "count": 2
+    },
+    {
+      "type": "NAMED_SHOW_INFOBOX",
+      "count": 2
+    },
+    {
+      "type": "NAMED_STOP",
+      "count": 2
+    },
+    {
+      "type": "NAMED_TRANSFER_OWNERSHIP_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "NAMED_USE_COMMANDBUTTON_ABILITY",
+      "count": 2
+    },
+    {
+      "type": "NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED",
+      "count": 2
+    },
+    {
+      "type": "NO_OP",
+      "count": 2
+    },
+    {
+      "type": "NUL",
+      "count": 1
+    },
+    {
+      "type": "NewDialog.h",
+      "count": 10
+    },
+    {
+      "type": "NewMap",
+      "count": 1
+    },
+    {
+      "type": "OBJECTLIST_ADDOBJECTTYPE",
+      "count": 2
+    },
+    {
+      "type": "OBJECT_CREATE_RADAR_EVENT",
+      "count": 2
+    },
+    {
+      "type": "OPTIONS_SET_OCCLUSION_MODE",
+      "count": 2
+    },
+    {
+      "type": "PATH",
+      "count": 3
+    },
+    {
+      "type": "PATH_MUSIC_ENABLE_DYNAMIC_SYSTEM",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_ENABLE_RESUME_SYSTEM",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_ENABLE_SPECIFIC_DYNAMIC_SYSTEM",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_FADE_IN_MUSIC",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_FADE_OUT_MUSIC",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_PLAY_EVENT",
+      "count": 2
+    },
+    {
+      "type": "PATH_MUSIC_STOP_MUSIC",
+      "count": 2
+    },
+    {
+      "type": "PLACE_AI_BEACON_LOCATION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_AI_CHANGEBASEBUILDER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_AI_CHANGESCIENCEUPGRADER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_AI_CHANGETEAMBUILDER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_AI_CHANGEUNITBUILDER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_AI_CHANGE_ECONOMY_MANAGER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_ALLOWED_TOBE_COOPAI",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_ALLOW_AI_AUTOACQUIRE",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_CAMERA_TETHER_NAMED",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_DESTROYED_N_BUILDINGS_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_DISABLE_BASE_CONSTRUCTION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_DISABLE_FACTORIES",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_DISABLE_UNIT_CONSTRUCTION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_ENABLE_BASE_CONSTRUCTION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_ENABLE_UNIT_CONSTRUCTION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_EXIT_ALL_BUILDINGS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_FIRE_SPECIAL_POWER_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_GIVE_MONEY",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_GRANT_SPECIAL_POWER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_COMPARISON_POWER_POINTS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_COMPARISON_UNIT_KIND_IN_TRIGGER_AREA",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_COMPARISON_UNIT_TYPE_IN_TRIGGER_AREA_COMPLETELY_BUILT",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_CREDITS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_KILLED_NAMED_UNIT",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_KILLED_TYPE_UNITS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_NO_POWER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_NUMBER_OBJECTS_WITH_MODELCONDITION",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_NUM_UNITS_WITH_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_OBJECT_COMPARISON",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_PLAYER_TECH",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_HAS_POWER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_IS_HUMAN_OR_AI_PERSONALITY",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_KILL",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_LOCK_PLAYER_TECH",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_LOST_OBJECT_TYPE",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_RELATES_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SELL_EVERYTHING",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_ALL_UNITS_TO_FLEE",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_BASE_POWER",
+      "count": 3
+    },
+    {
+      "type": "PLAYER_SET_MAX_PLAYER_POWER_POINTS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_MONEY",
+      "count": 4
+    },
+    {
+      "type": "PLAYER_SET_MONEY_CAP",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_OVERRIDE_RELATION_TO_TEAM",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_PLAYER_POWER_POINTS",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SET_SPECIAL_POWER_COUNTDOWN",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_SPECIAL_POWER_AVAILABILITY",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TOGGLE_RESOURCE_SHARING",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TRANSFER_OWNERSHIP_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TRIGGERED_SCRIPT_EVENT",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TRIGGERED_SPECIAL_POWER",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TRIGGERED_SPECIAL_POWER_FROM_NAMED",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_TRIGGERED_SPECIAL_POWER_IN_AREA",
+      "count": 2
+    },
+    {
+      "type": "PLAYER_UNIT_TYPE_SPECIAL_POWER_IGNORE_REQUIREMENTS",
+      "count": 2
+    },
+    {
+      "type": "PLAY_SOUND_AS_AI_COCOMMANDER_DIALOG",
+      "count": 2
+    },
+    {
+      "type": "PLAY_SOUND_AS_IF_IT_WAS_AN_EVA_EVENT",
+      "count": 2
+    },
+    {
+      "type": "PLAY_SOUND_AS_IF_IT_WAS_AN_EVA_EVENT_WITH_SUBTITLE",
+      "count": 2
+    },
+    {
+      "type": "PLAY_SOUND_EFFECT",
+      "count": 2
+    },
+    {
+      "type": "PLAY_SOUND_EFFECT_AT",
+      "count": 2
+    },
+    {
+      "type": "PRN",
+      "count": 1
+    },
+    {
+      "type": "Pave_Golf01",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf02",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf03",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf04",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf05",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf06",
+      "count": 3
+    },
+    {
+      "type": "Pave_Golf07",
+      "count": 3
+    },
+    {
+      "type": "RA3.exe",
+      "count": 4
+    },
+    {
+      "type": "RA3_NEW_WB_DIR",
+      "count": 2
+    },
+    {
+      "type": "RA3_wb_1.12.cfg",
+      "count": 1
+    },
+    {
+      "type": "RADAR_CREATE_EVENT",
+      "count": 2
+    },
+    {
+      "type": "REDALERT_DISABLE_THREAT_LEVEL_BONUS",
+      "count": 2
+    },
+    {
+      "type": "RESET_CAMERA",
+      "count": 2
+    },
+    {
+      "type": "RESTART_TIMER",
+      "count": 2
+    },
+    {
+      "type": "RESUME_BACKGROUND_SOUNDS",
+      "count": 2
+    },
+    {
+      "type": "ROTATE_CAMERA",
+      "count": 2
+    },
+    {
+      "type": "RW01",
+      "count": 2
+    },
+    {
+      "type": "RW1",
+      "count": 24
+    },
+    {
+      "type": "Ra3Map",
+      "count": 1
+    },
+    {
+      "type": "Ra3MapSchema.xsd",
+      "count": 1
+    },
+    {
+      "type": "Ra3MapWiki",
+      "count": 2
+    },
+    {
+      "type": "Rock_Odessa01",
+      "count": 2
+    },
+    {
+      "type": "SCREEN_SHAKE",
+      "count": 2
+    },
+    {
+      "type": "SCRIPT:A01_HELPTEXT_06",
+      "count": 2
+    },
+    {
+      "type": "SCRIPT:A07_OBJECTIVE_1_SUPWEP_COUNTDOWN",
+      "count": 2
+    },
+    {
+      "type": "SELECT_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "SELL_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "SETUP_CAMERA",
+      "count": 2
+    },
+    {
+      "type": "SET_COOP_AI_COMMAND_UI_ENABLED",
+      "count": 2
+    },
+    {
+      "type": "SET_COUNTER",
+      "count": 4
+    },
+    {
+      "type": "SET_COUNTER_TO_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_FLAG",
+      "count": 2
+    },
+    {
+      "type": "SET_MILLISECOND_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SET_MISSION_HOT_SPOT_ACTIVENESS",
+      "count": 2
+    },
+    {
+      "type": "SET_MISSION_HOT_SPOT_VISIBILITY",
+      "count": 2
+    },
+    {
+      "type": "SET_MISSION_OBJECTIVE_STATUS",
+      "count": 2
+    },
+    {
+      "type": "SET_PLAYER_KILLS_OF_KINDOF_TO_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_PLAYER_KILLS_OF_TYPE_TO_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_PLAYER_MONEY_TO_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_PLAYER_OWNERSHIP_OF_TYPE_COUNTER_INCLUDE_DEAD",
+      "count": 2
+    },
+    {
+      "type": "SET_RANDOM_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SET_RANDOM_MSEC_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SET_RANDOM_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SET_REF_TO_NEREST_TEAM_OF_TYPE_OWNED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "SET_REF_TO_NEREST_TEAM_OF_UNNAMED_TYPE_OWNED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "SET_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SET_UNIT_HEALTH_PERCENTAGE_TO_COUNTER",
+      "count": 2
+    },
+    {
+      "type": "SHOW_MILITARY_CAPTION",
+      "count": 2
+    },
+    {
+      "type": "SHOW_MISSION_OBJECTIVE",
+      "count": 2
+    },
+    {
+      "type": "SHOW_UI",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_CLEAR_ALL_ENEMY_PLAYERS_PRIORITIES",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_CLEAR_ENEMY_PLAYER_PRIORITY",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_CONSIDER_ALL_ENEMIES_WHEN_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_MAKE_BASE",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_SET_ALL_ENEMY_PLAYERS_PRIORITIES",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_SET_ENEMY_PLAYER_PRIORITY",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_SET_FAVORED_ENEMY",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_START",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_TRANSFER_ALL",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_USE_AUTOMATIC_ENEMY_PLAYER_PRIORITY_SCHEME",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_USE_REBUILD_SYSTEM",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_AI_USE_REPAIRS",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_FIRE_SPECIAL_POWER_AT_MOST_COST",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_PLAYER_HAS_BEEN_ATTACKED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_PLAYER_HAS_COMPARISON_GARRISONED",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_PLAYER_HAS_UNITS_IN_AREA",
+      "count": 2
+    },
+    {
+      "type": "SKIRMISH_SPECIAL_POWER_READY",
+      "count": 2
+    },
+    {
+      "type": "SOUND_AMBIENT_PAUSE",
+      "count": 2
+    },
+    {
+      "type": "SOUND_AMBIENT_RESUME",
+      "count": 2
+    },
+    {
+      "type": "SOUND_DISABLE_TYPE",
+      "count": 2
+    },
+    {
+      "type": "SOUND_ENABLE_ALL",
+      "count": 2
+    },
+    {
+      "type": "SOUND_ENABLE_TYPE",
+      "count": 2
+    },
+    {
+      "type": "SOUND_PLAY_NAMED",
+      "count": 2
+    },
+    {
+      "type": "STOP_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SUB_FROM_MSEC_TIMER",
+      "count": 2
+    },
+    {
+      "type": "SUCKED_UP_HIGH",
+      "count": 2
+    },
+    {
+      "type": "SUSPEND_BACKGROUND_SOUNDS",
+      "count": 2
+    },
+    {
+      "type": "SYS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_AFFECT_OBJECT_PANEL_FLAGS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_AI_TRANSFER",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ALLOW_AI_AUTOACQUIRE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ALL_HAS_OBJECT_STATUS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACKED_BY_OBJECTTYPE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACKED_BY_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACK_MOVE_FOLLOW_WAYPOINTS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACK_MOVE_TOWARDS_NEAREST_OBJECT_TYPE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACK_NAMED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ATTACK_TEAM",
+      "count": 2
+    },
+    {
+      "type": "TEAM_CAN_PATH_TO_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_CHANGE_OBJECT_STATUS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_COMPARE_NUM_MEMBERS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_CONTEXT_SENSITIVE_ATTACK",
+      "count": 2
+    },
+    {
+      "type": "TEAM_CREATED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_CREATE_RADAR_EVENT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_DELETE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_DESTROYED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_DISCOVERED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ENABLE_HOUSE_COLOR",
+      "count": 2
+    },
+    {
+      "type": "TEAM_ENTER_NAMED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_EXECUTE_SEQUENTIAL_SCRIPT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_EXIT_ALL_BUILDINGS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FACE_NAMED",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FACE_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FLASH",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FLASH_WHITE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FOLLOW_WAYPOINTS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FOLLOW_WAYPOINTS_EXACT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_FOLLOW_WAYPOINTS_STARTING_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GARRISON_NEAREST_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GARRISON_SPECIFIC_BUILDING",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GARRISON_SPECIFIC_BUILDING_INSTANTLY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GARRISON_TEAM_INSTANTLY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GIVE_EXPERIENCE_POINTS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GUARD_AREA",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GUARD_AREA_FROM_POSITION",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GUARD_FOR_SECONDS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_GUARD_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_HAS_FEWER_THAN_X_UNITS_WITH_KINDOF",
+      "count": 2
+    },
+    {
+      "type": "TEAM_HAS_UNITS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_HUNT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_IDLE_FOR_FRAMECOUNT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_IDLE_FOR_SECONDS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_INSIDE_AREA_ENTIRELY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_INSIDE_AREA_PARTIALLY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_IS_ATTACKED_AND_CANNOT_RETALIATE_ANY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_KILL",
+      "count": 2
+    },
+    {
+      "type": "TEAM_MERGE_INTO_TEAM",
+      "count": 2
+    },
+    {
+      "type": "TEAM_MOVE_TO_NEAREST_OBJECT_OF_TYPE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_PARTIAL_USE_COMMANDBUTTON",
+      "count": 2
+    },
+    {
+      "type": "TEAM_REMOVE_ALL_OVERRIDE_RELATIONS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_EXPERIENCE_POINTS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_HEALTH",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_MODELCONDITION",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_MODELCONDITION_FOR_DURATION",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_OVERRIDE_RELATION_TO_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_OVERRIDE_RELATION_TO_TEAM",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_PLAYERS_NEAREST_UNIT_OF_TYPE_TO_REFERENCE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SET_STANCE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_SOME_HAVE_OBJECT_STATUS",
+      "count": 2
+    },
+    {
+      "type": "TEAM_STOP",
+      "count": 2
+    },
+    {
+      "type": "TEAM_STOP_SEQUENTIAL_SCRIPT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_TELEPORT_TO_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_TRANSFER_TO_PLAYER",
+      "count": 2
+    },
+    {
+      "type": "TEAM_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "TEAM_USE_COMMANDBUTTON_ABILITY",
+      "count": 2
+    },
+    {
+      "type": "TEAM_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "TEAM_USE_COMMANDBUTTON_ABILITY_ON_NAMED",
+      "count": 2
+    },
+    {
+      "type": "TECHTREE_MODIFY_BUILDABILITY_OBJECT",
+      "count": 2
+    },
+    {
+      "type": "TEMP_RA2_Sco",
+      "count": 2
+    },
+    {
+      "type": "TIMER_EXPIRED",
+      "count": 2
+    },
+    {
+      "type": "TPave_Golf01;TPave_Golf01_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf02;TPave_Golf02_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf03;TPave_Golf03_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf04;TPave_Golf04_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf05;TPave_Golf05_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf06;TPave_Golf06_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TPave_Golf07;TPave_Golf07_NRM;",
+      "count": 1
+    },
+    {
+      "type": "TSCloudMed",
+      "count": 1
+    },
+    {
+      "type": "TYPE_SELECTED",
+      "count": 2
+    },
+    {
+      "type": "TYPE_SIGHTED",
+      "count": 2
+    },
+    {
+      "type": "UI_STATE_PROPOSITION_STATE",
+      "count": 2
+    },
+    {
+      "type": "UNFREEZE_TIME",
+      "count": 2
+    },
+    {
+      "type": "UNIT_AFFECT_OBJECT_PANEL_FLAGS",
+      "count": 2
+    },
+    {
+      "type": "UNIT_AI_TRANSFER",
+      "count": 2
+    },
+    {
+      "type": "UNIT_AI_TRANSFER_ALL",
+      "count": 2
+    },
+    {
+      "type": "UNIT_ALLOW_AI_AUTOACQUIRE",
+      "count": 2
+    },
+    {
+      "type": "UNIT_CHANGE_OBJECT_STATUS",
+      "count": 2
+    },
+    {
+      "type": "UNIT_CLEAR_MODELCONDITION",
+      "count": 2
+    },
+    {
+      "type": "UNIT_CONTEXT_SENSITIVE_ATTACK",
+      "count": 2
+    },
+    {
+      "type": "UNIT_ENABLE_HOUSE_COLOR",
+      "count": 2
+    },
+    {
+      "type": "UNIT_EXECUTE_SEQUENTIAL_SCRIPT",
+      "count": 2
+    },
+    {
+      "type": "UNIT_GIVE_EXPERIENCE_POINTS",
+      "count": 2
+    },
+    {
+      "type": "UNIT_GUARD_AREA",
+      "count": 2
+    },
+    {
+      "type": "UNIT_HAS_MODELCONDITION",
+      "count": 2
+    },
+    {
+      "type": "UNIT_HAS_OBJECT_STATUS",
+      "count": 2
+    },
+    {
+      "type": "UNIT_HAS_UPGRADE",
+      "count": 2
+    },
+    {
+      "type": "UNIT_HEALTH",
+      "count": 2
+    },
+    {
+      "type": "UNIT_IDLE_FOR_FRAMECOUNT",
+      "count": 2
+    },
+    {
+      "type": "UNIT_IDLE_FOR_SECONDS",
+      "count": 2
+    },
+    {
+      "type": "UNIT_KILL_ALL_IN_AREA",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_HEALTH",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_MODELCONDITION",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_MODELCONDITION_FOR_DURATION",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_MODELCONDITION_GENERIC",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_STANCE",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SET_TEAM",
+      "count": 2
+    },
+    {
+      "type": "UNIT_SPAWN_NAMED_OBJECT_ON_TEAM_AT_NAMED_OBJECT_LOCATION",
+      "count": 2
+    },
+    {
+      "type": "UNIT_STOP_SEQUENTIAL_SCRIPT",
+      "count": 2
+    },
+    {
+      "type": "UNIT_TELEPORT_TO_WAYPOINT",
+      "count": 2
+    },
+    {
+      "type": "UNIT_USING_STANCE",
+      "count": 2
+    },
+    {
+      "type": "USER_1",
+      "count": 6
+    },
+    {
+      "type": "VICTORY",
+      "count": 2
+    },
+    {
+      "type": "VICTORY_SCREEN",
+      "count": 2
+    },
+    {
+      "type": "Vec3D",
+      "count": 6
+    },
+    {
+      "type": "W0Vv~y\u0000",
+      "count": 1
+    },
+    {
+      "type": "WP_AlliedMCV",
+      "count": 2
+    },
+    {
+      "type": "WWJ1",
+      "count": 4
+    },
+    {
+      "type": "WholeMap",
+      "count": 1
+    },
+    {
+      "type": "WuRa3GameDebug",
+      "count": 1
+    },
+    {
+      "type": "WuRa3GameDebug.exe",
+      "count": 2
+    },
+    {
+      "type": "XYZJ1",
+      "count": 2
+    },
+    {
+      "type": "YD1.1",
+      "count": 2
+    },
+    {
+      "type": "YD1.3",
+      "count": 2
+    },
+    {
+      "type": "YD18.5",
+      "count": 2
+    },
+    {
+      "type": "ZOOM_CAMERA",
+      "count": 2
+    },
+    {
+      "type": "_1.csf",
+      "count": 1
+    },
+    {
+      "type": "_2.csf",
+      "count": 1
+    },
+    {
+      "type": "_cwNx\u0001\u0000",
+      "count": 1
+    },
+    {
+      "type": "wx/wx.h",
+      "count": 1
+    },
+    {
+      "type": "{0};{0}_NRM;",
+      "count": 1
+    },
+    {
+      "type": "{oldMapName}_mix",
+      "count": 1
+    }
+  ]
+}

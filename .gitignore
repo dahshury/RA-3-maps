@@ -1,0 +1,52 @@
+# Map directories
+RA 3 maps/RA3 Official maps
+
+# Dataset-specific directories in blendinfo dataset
+blendinfo dataset/_generated/
+blendinfo dataset/_restored/
+blendinfo dataset/_pruned/
+blendinfo dataset/Command & Conquer Red Alert 3/
+blendinfo dataset/Command & Conquer Red Alert 3 Uprising/
+
+# Map files
+*.map
+
+# Python artifacts
+uv.lock
+archon_transformer/_internal/uv.lock
+archon_transformer/_internal/.venv/
+archon_transformer/_internal/venv/
+archon_transformer/_internal/__pycache__/
+archon_transformer/_internal/*.pyc
+archon_transformer/_internal/*.pyo
+archon_transformer/_internal/*.pyd
+archon_transformer/_internal/.Python/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+dist/
+build/
+*.egg-info/
+python_tools/uv.lock
+python_tools/.venv/
+python_tools/venv/
+python_tools/__pycache__/
+python_tools/*.pyc
+python_tools/*.pyo
+python_tools/*.pyd
+python_tools/.Python/
+python_tools/uv.lock
+RA3 Official maps/
+archon_transformer/converted_maps/
+archon_transformer/maps_to_convert
+ban_mode_transformer/converted_maps
+python_tools/style_clusters
+RA3 Official maps/

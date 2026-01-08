@@ -21,6 +21,17 @@ This directory contains Python tools for processing RA3 maps for AI training.
 pip install -r requirements.txt
 ```
 
+### Optional: GPU acceleration (CuPy)
+
+The visualization path supports an optional **GPU backend** via [CuPy](https://cupy.dev/). This speeds up the heavy pixel/array math, but image encoding (PNG) still happens on CPU.
+
+- Install CuPy separately (recommended to pick a CUDA-matched wheel, e.g. `cupy-cuda12x`).
+- Or install the project’s GPU extra (pulls `cupy-cuda12x`):
+
+```bash
+pip install -e .[gpu]
+```
+
 2. Build the C# CLI tool (see `scripts/create_csharp_cli_placeholder.md`)
 
 ## Running Tests
@@ -76,3 +87,17 @@ The tests will automatically skip if the C# tool is not found, so you can run th
 2. Run tests to verify the pipeline works
 3. Extract training dataset from all maps
 4. Prepare data for AI model training
+
+## Visualization scripts
+
+Generate images for a single map:
+
+```bash
+python scripts/generate_map_image.py "<path/to/map.map>" "<output/dir>" --gpu
+```
+
+Batch visualize a directory of maps (optionally in parallel):
+
+```bash
+python scripts/visualize_all_maps.py "../RA3 Official maps" "../test_output/all_maps_training" --workers 4 --gpu
+```

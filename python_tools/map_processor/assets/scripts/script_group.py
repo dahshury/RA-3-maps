@@ -3,7 +3,7 @@ ScriptGroup asset
 Based on ScriptGroup.cs
 """
 import struct
-from typing import BinaryIO, List, TYPE_CHECKING
+from typing import BinaryIO, List, Tuple, TYPE_CHECKING
 
 from ...core.major_asset import MajorAsset
 from ...utils.constants import ASSET_ScriptGroup, ASSET_Script
@@ -27,6 +27,8 @@ class ScriptGroup(MajorAsset):
         self.is_subroutine: bool = False
         self.scripts: List[Script] = []
         self.script_groups: List['ScriptGroup'] = []
+        # Preserve original order of child assets for bit-perfect serialization
+        self._child_order: List[Tuple[str, int]] = []
     
     def get_asset_name(self) -> str:
         return ASSET_ScriptGroup
@@ -46,6 +48,8 @@ class ScriptGroup(MajorAsset):
         self.is_subroutine = struct.unpack('?', br.read(1))[0]
         
         # Read child assets (Script, ScriptGroup)
+        # Track original order for bit-perfect serialization
+        self._child_order = []
         # data_start_pos is set by base.from_stream() - use self.data_start_pos
         while br.tell() - self.data_start_pos < self.data_size:
             asset_id_pos = br.tell()
@@ -56,10 +60,12 @@ class ScriptGroup(MajorAsset):
             if asset_name == ASSET_Script:
                 script = Script()
                 script.from_stream(br, context)
+                self._child_order.append(('script', len(self.scripts)))
                 self.scripts.append(script)
             elif asset_name == ASSET_ScriptGroup:
                 script_group = ScriptGroup()
                 script_group.from_stream(br, context)
+                self._child_order.append(('group', len(self.script_groups)))
                 self.script_groups.append(script_group)
             else:
                 # Unknown asset type - skip
@@ -80,11 +86,17 @@ class ScriptGroup(MajorAsset):
         bw.write(struct.pack('?', self.is_active))
         bw.write(struct.pack('?', self.is_subroutine))
         
-        # Write scripts
-        for script in self.scripts:
-            script.save(bw, context)
-        
-        # Write script groups
-        for script_group in self.script_groups:
-            script_group.save(bw, context)
+        # Write child assets in original order (for bit-perfect preservation)
+        if self._child_order:
+            for child_type, idx in self._child_order:
+                if child_type == 'script':
+                    self.scripts[idx].save(bw, context)
+                elif child_type == 'group':
+                    self.script_groups[idx].save(bw, context)
+        else:
+            # Fallback: default order (for newly created script groups)
+            for script in self.scripts:
+                script.save(bw, context)
+            for script_group in self.script_groups:
+                script_group.save(bw, context)
 
