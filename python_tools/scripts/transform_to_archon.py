@@ -926,12 +926,12 @@ def _write_sidecars(out_map_path: Path, context: MapDataContext, template_map_pa
     # map.xml (generated)
     _write_minimal_map_xml(out_dir / "map.xml", context, map_stem, source_map_path=source_map_path)
 
-    # Copy map.str from template if available (localization strings)
-    if template_map_path:
-        tpl_dir = template_map_path.parent
-        tpl_map_str = tpl_dir / "map.str"
-        if tpl_map_str.exists():
-            shutil.copy2(tpl_map_str, out_dir / "map.str")
+    # map.str (localization): preserve SOURCE metadata, never blindly take it from template
+    # because that can overwrite the converted map's displayed name/description in-game.
+    if source_map_path:
+        src_map_str = source_map_path.parent / "map.str"
+        if src_map_str.exists():
+            shutil.copy2(src_map_str, out_dir / "map.str")
     
     # Note: TGA files are generated from source map data, not copied from template
 
@@ -3860,21 +3860,26 @@ def transform_to_archon(source_context: MapDataContext,
             # Build template team lookup
             template_teams = {key_for(tm): tm for tm in t_teams.teams}
             
-            # Set exportWithScript=True on all teams (archon requirement)
-            # Skip first team (empty team) and teamPlyrCivilian
+            # Set exportWithScript=True on all teams (archon requirement).
+            # IMPORTANT: This must be TRUE (not just present) for controller survival on paired-3p maps.
+            # Skip first team (empty team) and teamPlyrCivilian.
             for i, tm in enumerate(teams.teams):
                 team_name = get_name(tm)
                 # Skip first empty team and teamPlyrCivilian
                 if i == 0 or team_name == 'teamPlyrCivilian':
                     continue
-                if tm.property_collection.get_property('exportWithScript') is None:
-                    from map_processor.assets.assets.asset_property import AssetProperty, AssetPropertyType
+                exp = tm.property_collection.get_property('exportWithScript')
+                if exp is None:
                     prop = AssetProperty()
                     prop.id = context.map_struct.register_string('exportWithScript')
                     prop.property_type = AssetPropertyType.bool_type
                     prop.name = 'exportWithScript'
                     prop.data = True
                     tm.property_collection.property_map['exportWithScript'] = prop
+                else:
+                    # If present but wrong (older outputs, or templates that store it oddly), force-correct.
+                    exp.property_type = AssetPropertyType.bool_type
+                    exp.data = True
             
             source_keys = {key_for(tm) for tm in teams.teams}
             
@@ -3901,14 +3906,17 @@ def transform_to_archon(source_context: MapDataContext,
                     for name, prop in copied.property_collection.property_map.items():
                         prop.id = context.map_struct.register_string(name)
                     # Ensure exportWithScript=True on added archon teams
-                    if copied.property_collection.get_property('exportWithScript') is None:
-                        from map_processor.assets.assets.asset_property import AssetProperty, AssetPropertyType
+                    exp = copied.property_collection.get_property('exportWithScript')
+                    if exp is None:
                         prop = AssetProperty()
                         prop.id = context.map_struct.register_string('exportWithScript')
                         prop.property_type = AssetPropertyType.bool_type
                         prop.name = 'exportWithScript'
                         prop.data = True
                         copied.property_collection.property_map['exportWithScript'] = prop
+                    else:
+                        exp.property_type = AssetPropertyType.bool_type
+                        exp.data = True
                     teams.teams.append(copied)
                     added_archon += 1
             

@@ -13,6 +13,10 @@ Usage:
         --data-dir "../blendinfo dataset/_generated/prepared_w5_elev_full" \
         --input-map "../RA3 Official maps/2 II/map_mp_2_rao1.map" \
         --out-dir "../RA3 Official maps/2 II/test"
+
+Phase 0 inference improvements:
+    --tta                  Enable flipX test-time augmentation (average original + flipped logits)
+    --logit_adjustment_tau TAU  Post-hoc logit adjustment for direction (0=disabled, 1.0=full adjustment)
 """
 
 from __future__ import annotations
@@ -254,24 +258,23 @@ def _compute_extra_features(
 # Model loading and inference
 # =============================================================================
 
-def _load_model_from_checkpoint(checkpoint_dir: Path, meta: dict, arch: str = "deit"):
+def _load_model_from_checkpoint(checkpoint_dir: Path, meta: dict, arch: str = "deit", hidden: int = 384, n_layers: int = 6):
     """Load trained model from checkpoint."""
     import torch
     import torch.nn as nn
-    
+
     num_neighbor_classes = meta["neighbor"]["num_classes"]
     dir_num_classes = meta["direction"]["num_classes"]
     extra_dim = meta.get("extra_dim", 0)
     map_style_dim = meta.get("map_style_dim", 0)
     num_textures = meta["vocab"]["num_textures"]
-    
+
     if arch == "token":
         # Token transformer model (matches train_blend_model_hf.py TokenBlendModel)
         seq_len = 25
         center_idx = 12
-        hidden = 384  # Match training config
-        n_layers = 6
-        n_heads = 8
+        # hidden and n_layers are passed as parameters
+        n_heads = 8  # Match training script default (hidden must be divisible by n_heads)
         dropout = 0.1
         
         class TokenBlendModel(nn.Module):
@@ -577,6 +580,144 @@ def _prepare_batch_token(
 
 
 # =============================================================================
+# FlipX Test-Time Augmentation (TTA) helpers
+# =============================================================================
+
+# Direction class index remapping under horizontal flip.
+# dir_values: [-1, 1, 2, 4, 8, 17, 18, 20, 24, 33, 34, 36, 40, 49, 50, 52, 56]
+# Index:        0  1  2  3  4   5   6   7   8   9  10  11  12  13  14  15  16
+# Names:      N/A  L  B ExTR ExTL R  T  ExBR ExBL ?   ?   BL  BR   ?   ?  TL  TR
+#
+# Horizontal flip swaps Left<->Right in direction semantics:
+#   Left (1) <-> Right (5)
+#   Bottom (2) stays (2)
+#   ExceptTopRight (3) <-> ExceptTopLeft (4)
+#   Top (6) stays (6)
+#   ExceptBottomRight (7) <-> ExceptBottomLeft (8)
+#   BottomLeft (11) <-> BottomRight (12)
+#   TopLeft (15) <-> TopRight (16)
+#   Invalid/unknown (0, 9, 10, 13, 14) stay the same
+_DIR_FLIPX_MAP = {
+    0: 0, 1: 5, 2: 2, 3: 4, 4: 3, 5: 1, 6: 6, 7: 8, 8: 7,
+    9: 9, 10: 10, 11: 12, 12: 11, 13: 13, 14: 14, 15: 16, 16: 15,
+}
+
+# Neighbor mask bit remapping under horizontal flip.
+# Bits: 0=TL, 1=T, 2=TR, 3=L, 4=R, 5=BL, 6=B, 7=BR
+# Swap: TL(0)<->TR(2), L(3)<->R(4), BL(5)<->BR(7); T(1) and B(6) stay
+_MASK_FLIPX_MAP = [2, 1, 0, 4, 3, 7, 6, 5]  # new_bit[i] = old_bit[_MASK_FLIPX_MAP[i]]
+
+# 5x5 grid column flip permutation (flattened row-major).
+# For each position i in the flattened 25-element array, compute the
+# position it maps to when columns are flipped: col' = 4 - col
+_GRID_FLIPX_PERM = []
+for _r in range(5):
+    for _c in range(5):
+        _GRID_FLIPX_PERM.append(_r * 5 + (4 - _c))
+
+
+def _build_dir_logit_adjustment(dir_values: list, tau: float) -> np.ndarray:
+    """
+    Build post-hoc logit adjustment offsets for direction classes.
+
+    Uses hardcoded class frequency priors from verified training data analysis:
+    - Cardinal directions (Left=1, Right=5, Top=6, Bottom=2): ~9.75% each => ~39% total
+    - Except-corner (ExTR=3, ExTL=4, ExBR=7, ExBL=8): ~12.25% each => ~49% total
+    - Full-corner (TL=15, TR=16, BL=11, BR=12): ~3% each => ~12% total
+    - Invalid/unknown (0, 9, 10, 13, 14): negligible (~0.01% each placeholder)
+
+    Returns log-prior offsets of shape [num_dir_classes].
+    """
+    num_classes = len(dir_values)
+    # Approximate class prior (normalized counts)
+    prior = np.zeros(num_classes, dtype=np.float64)
+
+    # Class indices and approximate frequencies (from training data distributions):
+    # Cardinal (~39% total, 4 classes)
+    for idx in [1, 2, 5, 6]:
+        if idx < num_classes:
+            prior[idx] = 0.0975
+    # Except-corner (~49% total, 4 classes)
+    for idx in [3, 4, 7, 8]:
+        if idx < num_classes:
+            prior[idx] = 0.1225
+    # Full-corner (~12% total, 4 classes)
+    for idx in [11, 12, 15, 16]:
+        if idx < num_classes:
+            prior[idx] = 0.03
+    # Invalid/unknown classes get small epsilon
+    for idx in [0, 9, 10, 13, 14]:
+        if idx < num_classes:
+            prior[idx] = 0.0001
+
+    # Normalize to ensure it sums to 1
+    prior = prior / prior.sum()
+
+    # log-prior adjustment: tau * log(prior)
+    log_prior = tau * np.log(prior + 1e-12)
+    return log_prior.astype(np.float32)
+
+
+def _flipx_tex_batch(tex: "torch.Tensor") -> "torch.Tensor":
+    """
+    Horizontally flip a batch of flattened 5x5 texture ID grids.
+
+    tex: [B, 25] long tensor of global texture IDs
+    Returns: [B, 25] with columns flipped (0<->4, 1<->3, 2 stays)
+    """
+    return tex[:, _GRID_FLIPX_PERM]
+
+
+def _flipx_elev_batch(elev_z: "torch.Tensor") -> "torch.Tensor":
+    """
+    Horizontally flip a batch of flattened 5x5 elevation grids.
+
+    elev_z: [B, 25] float tensor of normalized elevations
+    Returns: [B, 25] with columns flipped
+    """
+    return elev_z[:, _GRID_FLIPX_PERM]
+
+
+def _flipx_local_norm_batch(local_norm: "torch.Tensor") -> "torch.Tensor":
+    """
+    Horizontally flip a batch of flattened 5x5 local norm grids.
+
+    local_norm: [B, 25] float tensor
+    Returns: [B, 25] with columns flipped
+    """
+    return local_norm[:, _GRID_FLIPX_PERM]
+
+
+def _unflip_dir_logits(dir_logits: "torch.Tensor") -> "torch.Tensor":
+    """
+    Remap direction logits from flipped coordinate frame back to original.
+
+    dir_logits: [B, num_dir_classes] float tensor
+    Returns: [B, num_dir_classes] with columns permuted so that
+             unflipped_logits[:, orig_class] = dir_logits[:, flipped_class]
+    """
+    import torch
+    num_classes = dir_logits.shape[1]
+    # Build permutation: for each original class i, the flipped class is _DIR_FLIPX_MAP[i]
+    perm = [_DIR_FLIPX_MAP.get(i, i) for i in range(num_classes)]
+    perm_tensor = torch.tensor(perm, dtype=torch.long, device=dir_logits.device)
+    # Gather: for original class i, take logit from flipped position _DIR_FLIPX_MAP[i]
+    return torch.gather(dir_logits, 1, perm_tensor.unsqueeze(0).expand(dir_logits.shape[0], -1))
+
+
+def _unflip_mask_logits(mask_logits: "torch.Tensor") -> "torch.Tensor":
+    """
+    Remap 8-bit neighbor mask logits from flipped coordinate frame back to original.
+
+    mask_logits: [B, 8] float tensor
+    Returns: [B, 8] with bits remapped: TL<->TR, L<->R, BL<->BR
+    """
+    import torch
+    perm_tensor = torch.tensor(_MASK_FLIPX_MAP, dtype=torch.long, device=mask_logits.device)
+    return torch.gather(mask_logits, 1, perm_tensor.unsqueeze(0).expand(mask_logits.shape[0], -1))
+
+
+# =============================================================================
 # Main inference
 # =============================================================================
 
@@ -593,18 +734,27 @@ def main():
     ap.add_argument("--out-dir", required=True, help="Output directory for comparison files")
     ap.add_argument("--arch", default="token", choices=["deit", "token"],
                     help="Model architecture (default: token)")
+    ap.add_argument("--hidden", type=int, default=384, help="Hidden size for token model (384, 768, etc.)")
+    ap.add_argument("--layers", type=int, default=6, help="Number of transformer layers (default: 6)")
     ap.add_argument("--batch-size", type=int, default=128, help="Batch size for inference")
     ap.add_argument("--device", default="cuda", help="Device (cuda/cpu)")
-    ap.add_argument("--blend-present-threshold", type=float, default=0.5,
-                    help="Threshold for blend_present prediction (sigmoid output)")
+    ap.add_argument("--blend-present-threshold", type=float, default=0.3,
+                    help="Threshold for blend_present prediction (sigmoid output, 0.3 optimal for F1)")
     ap.add_argument("--use-rule-for-present", action="store_true",
                     help="Use deterministic rule for blend_present (center_local < some_diff_neighbor_local)")
+    ap.add_argument("--tta", action="store_true",
+                    help="Enable flipX test-time augmentation (average original + flipped logits)")
+    ap.add_argument("--logit_adjustment_tau", type=float, default=0.0,
+                    help="Post-hoc logit adjustment tau for direction (0=disabled, 1.0=full). "
+                         "Adds tau*log(class_prior) to direction logits before argmax.")
     args = ap.parse_args()
     
     _print("=== Blend Prediction Script ===")
     _print(f"Checkpoint: {args.checkpoint}")
     _print(f"Data dir: {args.data_dir}")
     _print(f"Input map: {args.input_map}")
+    _print(f"TTA (flipX): {args.tta}")
+    _print(f"Logit adjustment tau: {args.logit_adjustment_tau}")
     
     import torch
     
@@ -629,10 +779,17 @@ def main():
     
     # Direction values mapping
     dir_values = meta["direction"]["values"]
-    
+
+    # Build direction logit adjustment (post-hoc correction for class imbalance)
+    dir_log_prior = None
+    if args.logit_adjustment_tau != 0.0:
+        dir_log_prior = _build_dir_logit_adjustment(dir_values, tau=args.logit_adjustment_tau)
+        _print(f"  -> Direction logit adjustment enabled (tau={args.logit_adjustment_tau})")
+        _print(f"     log_prior range: [{dir_log_prior.min():.3f}, {dir_log_prior.max():.3f}]")
+
     # Load model
-    _print(f"Loading model from checkpoint (arch={args.arch})...")
-    model = _load_model_from_checkpoint(checkpoint_dir, meta, arch=args.arch)
+    _print(f"Loading model from checkpoint (arch={args.arch}, hidden={args.hidden}, layers={args.layers})...")
+    model = _load_model_from_checkpoint(checkpoint_dir, meta, arch=args.arch, hidden=args.hidden, n_layers=args.layers)
     model = model.to(device)
     _print("  -> Model loaded and moved to device")
     
@@ -683,69 +840,149 @@ def main():
     _print(f"Original stats: {(orig_blends > 0).sum()} blend cells, {(orig_se > 0).sum()} SE cells, {len(orig_blend_info)} blend_info entries")
     
     # Prepare predicted storage
+    # IMPORTANT: We must CREATE NEW blend_info entries, NOT reuse original ones!
+    # Attempting to reuse original blend_info via lookup causes WorldBuilder crashes
+    # because the lookup collapses to few unique indices and breaks SE predictions.
+    # Each predicted blend needs a properly encoded BlendInfo with:
+    # - secondary_texture_tile: position-encoded texture ID via _get_tile_from_texture()
+    # - blend_direction: from model prediction
+    # - _blend_direction_raw: computed via _from_blend_direction()
     pred_blends = np.zeros_like(orig_blends)
     pred_se = np.zeros_like(orig_se)
     pred_blend_info: List[BlendInfo] = []
-    blend_info_lookup: Dict[Tuple[int, int, int], int] = {}  # (sec_tex_tile, dir) -> index
+    blend_info_lookup: Dict[Tuple[int, int, int], int] = {}  # (sec_tex_tile, dir, layer) -> index
     
     # Collect all coordinates
     all_coords = [(x, y) for x in range(w) for y in range(h)]
     n_local_tex = len(local_tex_names)
     
+    # Convert logit adjustment to torch tensor if enabled
+    dir_log_prior_t = None
+    if dir_log_prior is not None:
+        dir_log_prior_t = torch.tensor(dir_log_prior, dtype=torch.float32, device=device)
+
     _print(f"Running inference on {len(all_coords)} cells (arch={args.arch})...")
-    
+
     def _mask_to_neighbor_idx(mask_logits):
         """Convert 8-bit mask logits to neighbor index (first active bit)."""
         mask_probs = torch.sigmoid(mask_logits)  # [B, 8]
         # Pick the highest probability neighbor
         return mask_probs.argmax(dim=-1).cpu().numpy()
-    
+
+    def _run_model_token(batch_dict):
+        """Run token model and return raw logits dict (on device)."""
+        return model(
+            tex=batch_dict["tex"],
+            elev_z=batch_dict["elev_z"],
+            tex_local_norm=batch_dict["tex_local_norm"]
+        )
+
+    def _run_model_deit(batch_dict):
+        """Run DeiT model and return raw logits dict (on device)."""
+        return model(batch_dict["pixel_values"], extra_features=batch_dict["extra_features"])
+
+    def _average_logits(out_orig, out_flip, arch):
+        """Average original and un-flipped logits for TTA."""
+        result = {}
+        # Present logits: scalar per sample, symmetric under flip -> just average
+        result["logits_blend_present"] = (out_orig["logits_blend_present"] + out_flip["logits_blend_present"]) / 2.0
+        result["logits_se_present"] = (out_orig["logits_se_present"] + out_flip["logits_se_present"]) / 2.0
+
+        # Direction logits: un-flip the flipped output, then average
+        result["logits_blend_dir"] = (out_orig["logits_blend_dir"] + _unflip_dir_logits(out_flip["logits_blend_dir"])) / 2.0
+        result["logits_se_dir"] = (out_orig["logits_se_dir"] + _unflip_dir_logits(out_flip["logits_se_dir"])) / 2.0
+
+        if arch == "token":
+            # Mask logits (8-bit neighbor mask): un-flip then average
+            result["logits_blend_mask"] = (out_orig["logits_blend_mask"] + _unflip_mask_logits(out_flip["logits_blend_mask"])) / 2.0
+            result["logits_se_mask"] = (out_orig["logits_se_mask"] + _unflip_mask_logits(out_flip["logits_se_mask"])) / 2.0
+        else:
+            # DeiT uses sec logits (8 neighbor classes, same remapping as mask)
+            result["logits_blend_sec"] = (out_orig["logits_blend_sec"] + _unflip_mask_logits(out_flip["logits_blend_sec"])) / 2.0
+            result["logits_se_sec"] = (out_orig["logits_se_sec"] + _unflip_mask_logits(out_flip["logits_se_sec"])) / 2.0
+
+        return result
+
     with torch.no_grad():
         for batch_start in range(0, len(all_coords), args.batch_size):
             batch_end = min(batch_start + args.batch_size, len(all_coords))
             batch_coords = all_coords[batch_start:batch_end]
-            
+
             if args.arch == "token":
-                # Token model batch
+                # Token model batch - original
                 batch = _prepare_batch_token(
                     tex_grid, elev_grid, batch_coords,
                     local_to_global, elev_mean, elev_std, n_local_tex, device
                 )
-                outputs = model(
-                    tex=batch["tex"],
-                    elev_z=batch["elev_z"],
-                    tex_local_norm=batch["tex_local_norm"]
-                )
-                
+                outputs = _run_model_token(batch)
+
+                # TTA: run flipped version and average logits
+                if args.tta:
+                    batch_flip = {
+                        "tex": _flipx_tex_batch(batch["tex"]),
+                        "elev_z": _flipx_elev_batch(batch["elev_z"]),
+                        "tex_local_norm": _flipx_local_norm_batch(batch["tex_local_norm"]),
+                    }
+                    outputs_flip = _run_model_token(batch_flip)
+                    outputs = _average_logits(outputs, outputs_flip, arch="token")
+
+                # Apply direction logit adjustment
+                b_dir_logits = outputs["logits_blend_dir"]
+                se_dir_logits = outputs["logits_se_dir"]
+                if dir_log_prior_t is not None:
+                    b_dir_logits = b_dir_logits + dir_log_prior_t
+                    se_dir_logits = se_dir_logits + dir_log_prior_t
+
                 # Token model outputs mask logits
                 b_present_probs = torch.sigmoid(outputs["logits_blend_present"]).cpu().numpy()
                 b_sec_preds = _mask_to_neighbor_idx(outputs["logits_blend_mask"])
-                b_dir_preds = outputs["logits_blend_dir"].argmax(dim=-1).cpu().numpy()
-                
+                b_dir_preds = b_dir_logits.argmax(dim=-1).cpu().numpy()
+
                 se_present_probs = torch.sigmoid(outputs["logits_se_present"]).cpu().numpy()
                 se_sec_preds = _mask_to_neighbor_idx(outputs["logits_se_mask"])
-                se_dir_preds = outputs["logits_se_dir"].argmax(dim=-1).cpu().numpy()
+                se_dir_preds = se_dir_logits.argmax(dim=-1).cpu().numpy()
             else:
-                # DeiT model batch
+                # DeiT model batch - original
                 batch = _prepare_batch_deit(
                     tex_grid, elev_grid, type_grid, biome_grid, batch_coords,
                     local_to_global, palette, elev_mean, elev_std, device
                 )
-                outputs = model(batch["pixel_values"], extra_features=batch["extra_features"])
-                
+                outputs = _run_model_deit(batch)
+
+                # TTA for DeiT: would need to flip the 224x224 image and remap
+                # For now, TTA is only supported for token arch since DeiT uses
+                # pixel-level RGB images (5x5 upsampled to 224x224) which would
+                # require image-level flipping. We skip TTA for DeiT gracefully.
+                if args.tta and batch_start == 0:
+                    _print("  Warning: TTA (--tta) is not supported for DeiT arch, proceeding without TTA")
+
+                # Apply direction logit adjustment
+                b_dir_logits = outputs["logits_blend_dir"]
+                se_dir_logits = outputs["logits_se_dir"]
+                if dir_log_prior_t is not None:
+                    b_dir_logits = b_dir_logits + dir_log_prior_t
+                    se_dir_logits = se_dir_logits + dir_log_prior_t
+
                 # DeiT model outputs neighbor class
                 b_present_probs = torch.sigmoid(outputs["logits_blend_present"]).cpu().numpy()
                 b_sec_preds = outputs["logits_blend_sec"].argmax(dim=-1).cpu().numpy()
-                b_dir_preds = outputs["logits_blend_dir"].argmax(dim=-1).cpu().numpy()
-                
+                b_dir_preds = b_dir_logits.argmax(dim=-1).cpu().numpy()
+
                 se_present_probs = torch.sigmoid(outputs["logits_se_present"]).cpu().numpy()
                 se_sec_preds = outputs["logits_se_sec"].argmax(dim=-1).cpu().numpy()
-                se_dir_preds = outputs["logits_se_dir"].argmax(dim=-1).cpu().numpy()
+                se_dir_preds = se_dir_logits.argmax(dim=-1).cpu().numpy()
             
             # Convert predictions to blend_info entries
             for i, (x, y) in enumerate(batch_coords):
                 center_tex = tex_grid[x, y]
-                
+
+                # Pre-compute valid neighbors (those with different texture than center)
+                valid_neighbors = []
+                for ni, (dx, dy) in enumerate(_NEIGHBOR_OFFSETS):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and tex_grid[nx, ny] != center_tex:
+                        valid_neighbors.append(ni)
+
                 # Optionally use rule for blend_present
                 if args.use_rule_for_present:
                     # Deterministic rule: blend if center_local < any different neighbor's local
@@ -762,24 +999,36 @@ def main():
                     b_present = b_present_probs[i] > args.blend_present_threshold
                 
                 # Blend layer
-                if b_present:
-                    neighbor_idx = int(b_sec_preds[i])
+                if b_present and valid_neighbors:
+                    # Constrain secondary texture prediction to valid neighbors only
+                    if args.arch == "token":
+                        # Mask invalid neighbors in logits before argmax
+                        sec_logits = outputs["logits_blend_mask"][i].clone()
+                        for ni in range(8):
+                            if ni not in valid_neighbors:
+                                sec_logits[ni] = float('-inf')
+                        neighbor_idx = int(sec_logits.argmax())
+                    else:
+                        # DeiT model: mask invalid neighbors in sec logits
+                        sec_logits = outputs["logits_blend_sec"][i].clone()
+                        for ni in range(8):
+                            if ni not in valid_neighbors:
+                                sec_logits[ni] = float('-inf')
+                        neighbor_idx = int(sec_logits.argmax())
+
                     dir_class = int(b_dir_preds[i])
-                    
-                    # Get neighbor texture
+
+                    # Get neighbor texture (guaranteed valid due to masking)
                     dx, dy = _NEIGHBOR_OFFSETS[neighbor_idx]
                     nx, ny = x + dx, y + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        sec_tex = tex_grid[nx, ny]
-                    else:
-                        sec_tex = center_tex  # fallback to center
-                    
+                    sec_tex = tex_grid[nx, ny]
+
                     # Encode secondary_texture_tile
                     sec_tex_tile = _get_tile_from_texture(x, y, int(sec_tex))
-                    
+
                     # Get direction value from class
                     dir_value = dir_values[dir_class] if dir_class < len(dir_values) else 0
-                    
+
                     # Find or create blend_info entry
                     key = (sec_tex_tile, dir_value, 0)  # simplified key
                     if key not in blend_info_lookup:
@@ -791,24 +1040,37 @@ def main():
                         bi.i4 = 2061107200  # Magic value from original maps
                         pred_blend_info.append(bi)
                         blend_info_lookup[key] = len(pred_blend_info)
-                    
+
                     pred_blends[x, y] = blend_info_lookup[key]
                 
                 # Single edge layer (only model-based, rule doesn't apply well)
-                if se_present_probs[i] > args.blend_present_threshold:
-                    neighbor_idx = int(se_sec_preds[i])
+                if se_present_probs[i] > args.blend_present_threshold and valid_neighbors:
+                    # Constrain secondary texture prediction to valid neighbors only
+                    if args.arch == "token":
+                        # Mask invalid neighbors in logits before argmax
+                        sec_logits = outputs["logits_se_mask"][i].clone()
+                        for ni in range(8):
+                            if ni not in valid_neighbors:
+                                sec_logits[ni] = float('-inf')
+                        neighbor_idx = int(sec_logits.argmax())
+                    else:
+                        # DeiT model: mask invalid neighbors in sec logits
+                        sec_logits = outputs["logits_se_sec"][i].clone()
+                        for ni in range(8):
+                            if ni not in valid_neighbors:
+                                sec_logits[ni] = float('-inf')
+                        neighbor_idx = int(sec_logits.argmax())
+
                     dir_class = int(se_dir_preds[i])
-                    
+
+                    # Get neighbor texture (guaranteed valid due to masking)
                     dx, dy = _NEIGHBOR_OFFSETS[neighbor_idx]
                     nx, ny = x + dx, y + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        sec_tex = tex_grid[nx, ny]
-                    else:
-                        sec_tex = center_tex
-                    
+                    sec_tex = tex_grid[nx, ny]
+
                     sec_tex_tile = _get_tile_from_texture(x, y, int(sec_tex))
                     dir_value = dir_values[dir_class] if dir_class < len(dir_values) else 0
-                    
+
                     key = (sec_tex_tile, dir_value, 1)  # different key for SE
                     if key not in blend_info_lookup:
                         bi = BlendInfo()
@@ -819,7 +1081,7 @@ def main():
                         bi.i4 = 2061107200  # Magic value from original maps
                         pred_blend_info.append(bi)
                         blend_info_lookup[key] = len(pred_blend_info)
-                    
+
                     pred_se[x, y] = blend_info_lookup[key]
             
             if (batch_end % 5000) == 0 or batch_end == len(all_coords):
@@ -835,6 +1097,8 @@ def main():
     _print(f"SE presence match: {se_match:.4f}")
     
     # Save blendless version
+    # NOTE: Keep blend_info and blends_count unchanged - only zero the blend arrays
+    # This matches WorldBuilder's "Remove all texture blends" behavior
     blendless_path = out_dir / f"{input_map.stem}_blendless.map"
     m_blendless = Ra3Map(str(input_map))
     m_blendless.parse()
@@ -842,8 +1106,10 @@ def main():
     blend_bl = ctx_bl.get_asset_by_type(BlendTileData)
     blend_bl.blends = np.zeros_like(blend_bl.blends, dtype=np.uint16)
     blend_bl.single_edge_blends = np.zeros_like(blend_bl.single_edge_blends, dtype=np.uint16)
-    blend_bl.blend_info = []
-    blend_bl.blends_count = 0  # No blend_info entries
+    # Keep blend_info and blends_count unchanged (matches observed WB output behavior)
+    # FIX: Recompute raw bytes to avoid values > 1 that crash WorldBuilder
+    for bi in blend_bl.blend_info:
+        bi._blend_direction_raw = bi._from_blend_direction(bi.blend_direction)
     m_blendless.save(str(blendless_path), compress=True)
     _print(f"Saved blendless map: {blendless_path}")
     
@@ -861,8 +1127,9 @@ def main():
     blend_pred = ctx_pred.get_asset_by_type(BlendTileData)
     blend_pred.blends = pred_blends.astype(np.uint16)
     blend_pred.single_edge_blends = pred_se.astype(np.uint16)
+    # CRITICAL: Use newly created blend_info list, NOT original!
+    # Reusing original blend_info causes WorldBuilder crashes.
     blend_pred.blend_info = pred_blend_info
-    # CRITICAL: update blends_count to match new blend_info length!
     blend_pred.blends_count = len(pred_blend_info)
     m_pred.save(str(pred_path), compress=True)
     _print(f"Saved predicted map: {pred_path}")
@@ -870,6 +1137,13 @@ def main():
     # Save comparison stats
     stats = {
         "input_map": str(input_map),
+        "settings": {
+            "tta": args.tta,
+            "logit_adjustment_tau": args.logit_adjustment_tau,
+            "arch": args.arch,
+            "blend_present_threshold": args.blend_present_threshold,
+            "use_rule_for_present": args.use_rule_for_present,
+        },
         "original": {
             "blend_cells": int((orig_blends > 0).sum()),
             "se_cells": int((orig_se > 0).sum()),

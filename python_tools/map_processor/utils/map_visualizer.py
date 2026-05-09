@@ -45,7 +45,18 @@ class MapVisualizer:
         # Water/Reef - blue
         'Reef': (0, 100, 200),  # Deep blue
         'TReef': (0, 100, 200),
-        
+
+        # Snow / Ice - whites and pale blues
+        'Snow': (235, 240, 248),  # Near-white with cool tint
+        'Ice': (200, 220, 235),  # Pale blue
+        'Cliff_Iceland': (180, 195, 210),  # Bluish gray for icy cliffs
+
+        # Industrial / urban surfaces
+        'SteelDeck': (110, 115, 120),  # Steel gray
+        'Asphalt': (60, 60, 64),  # Dark asphalt
+        'Cliff': (115, 95, 75),  # Brownish cliff
+        'BB': (140, 130, 110),  # Construction tan
+
         # Transition - mix of colors
         'Transition': (107, 142, 35),  # Olive drab
         
@@ -489,12 +500,17 @@ class MapVisualizer:
                             max(0, pixel_x - category.size), max(0, pixel_y - category.size),
                             min(width - 1, pixel_x + category.size), min(height - 1, pixel_y + category.size)
                         ]
-                        # Draw filled circle
-                        draw.ellipse(bbox, fill=category.color, outline=(0, 0, 0), width=2)
-                        # Draw a small cross in the center for better visibility
-                        draw.line([pixel_x - 2, pixel_y, pixel_x + 2, pixel_y], fill=(0, 0, 0), width=1)
-                        draw.line([pixel_x, pixel_y - 2, pixel_x, pixel_y + 2], fill=(0, 0, 0), width=1)
-                        
+                        # Roads are tiny markers; the standard 2px black outline + center
+                        # cross dwarf the fill and produce black-dot artifacts. Render
+                        # them as solid filled circles in their own color instead.
+                        if category.name == 'Road':
+                            draw.ellipse(bbox, fill=category.color, outline=category.color, width=1)
+                        else:
+                            draw.ellipse(bbox, fill=category.color, outline=(0, 0, 0), width=2)
+                            # Small cross in the center for better visibility
+                            draw.line([pixel_x - 2, pixel_y, pixel_x + 2, pixel_y], fill=(0, 0, 0), width=1)
+                            draw.line([pixel_x, pixel_y - 2, pixel_x, pixel_y + 2], fill=(0, 0, 0), width=1)
+
                         # Count objects by category
                         object_counts[category.name] = object_counts.get(category.name, 0) + 1
             

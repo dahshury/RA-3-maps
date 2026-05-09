@@ -77,10 +77,11 @@ class BlendTileData(MajorAsset):
         self.passability = np.full((self.map_width, self.map_height), int(Passability.Passable), dtype=np.int32)
         
         # Read boolean arrays (returns tuple of (array, raw_bytes) for bit-perfect reconstruction)
+        # CRITICAL: Order must match actual file format (C# save order): extra_passable BEFORE passage_width
         self.impassable, self._impassable_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
         impassable_to_players, self._impassable_to_players_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
-        self.passage_width, self._passage_width_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
         extra_passable, self._extra_passable_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
+        self.passage_width, self._passage_width_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
         self.visibility, self._visibility_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
         self.buildability, self._buildability_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
         impassable_to_air_units, self._impassable_to_air_units_raw = BinaryUtils.read_array_2d(br, self.map_width, self.map_height, np.bool_)
@@ -153,9 +154,11 @@ class BlendTileData(MajorAsset):
         # Write boolean arrays (use raw bytes for bit-perfect reconstruction)
         # Note: impassable, impassable_to_players, extra_passable, impassable_to_air_units
         # are reconstructed from passability, so we need to use original raw bytes
+        # CRITICAL: Order must match the actual file format (C# save order), NOT parse order!
+        # The C# code has parse != save order, but files are stored in save order.
         BinaryUtils.write_array_2d(bw, (impassable, self._impassable_raw), np.bool_)
         BinaryUtils.write_array_2d(bw, (impassable_to_players, self._impassable_to_players_raw), np.bool_)
-        BinaryUtils.write_array_2d(bw, (extra_passable, self._extra_passable_raw), np.bool_)
+        BinaryUtils.write_array_2d(bw, (extra_passable, self._extra_passable_raw), np.bool_)  # extra_passable before passage_width (matches C# save)
         BinaryUtils.write_array_2d(bw, (self.passage_width, self._passage_width_raw), np.bool_)
         BinaryUtils.write_array_2d(bw, (self.visibility, self._visibility_raw), np.bool_)
         BinaryUtils.write_array_2d(bw, (self.buildability, self._buildability_raw), np.bool_)
@@ -175,7 +178,7 @@ class BlendTileData(MajorAsset):
         
         # Write magic values
         bw.write(struct.pack('<I', self.magic1))
-        bw.write(struct.pack('<i', 0))  # magic2 is written as 0
+        bw.write(struct.pack('<i', self.magic2))  # Preserve original magic2 value
         
         # Write blend info
         for blend_info in self.blend_info:

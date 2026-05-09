@@ -50,3 +50,18 @@ archon_transformer/maps_to_convert
 ban_mode_transformer/converted_maps
 python_tools/style_clusters
 RA3 Official maps/
+
+# Large reference data and packaged tool binaries
+side/
+wb/
+ra3_map_toolkit/
+node_modules/
+
+# Python tool preview/output dirs
+python_tools/_retex_preview/
+python_tools/_swap_preview/
+python_tools/out/
+python_tools/checkpoints/
+
+# Editor / agent state
+.claude/

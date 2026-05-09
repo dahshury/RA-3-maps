@@ -242,6 +242,7 @@ def _make_token_collator(
     elev_std: float,
     mask_ignore_value: int,
     map_style_dim: int,
+    dist_boundary_extra_idx: int = -1,
 ):
     """
     Collator for the token-transformer architecture:
@@ -316,9 +317,57 @@ def _make_token_collator(
             out["extra_features"] = extra
         if ms is not None:
             out["map_style"] = ms
+
+        # Phase 1: Extract dist_to_boundary from extra features if index is known
+        if dist_boundary_extra_idx >= 0 and extra is not None and extra.shape[1] > dist_boundary_extra_idx:
+            out["dist_to_boundary"] = extra[:, dist_boundary_extra_idx]
+
         return out
 
     return collate
+
+
+class AsymmetricLoss:
+    """
+    Asymmetric Loss (ASL) for multi-label classification.
+    Better than BCE for imbalanced multi-label problems (like neighbor mask prediction).
+    Ref: https://arxiv.org/abs/2009.14119
+
+    Instantiated as a plain class to avoid issues with nested nn.Module inside
+    the model factory. The actual torch import happens at call time.
+    """
+
+    def __init__(self, gamma_neg=4, gamma_pos=0, clip=0.05, disable_torch_grad_focal_loss=True):
+        self.gamma_neg = gamma_neg
+        self.gamma_pos = gamma_pos
+        self.clip = clip
+        self.disable_torch_grad_focal_loss = disable_torch_grad_focal_loss
+
+    def __call__(self, x, y):
+        import torch
+        # x: logits, y: targets (0 or 1)
+        xs_pos = torch.sigmoid(x)
+        xs_neg = 1 - xs_pos
+        # Asymmetric clipping (hard threshold for easy negatives)
+        if self.clip is not None and self.clip > 0:
+            xs_neg = (xs_neg + self.clip).clamp(max=1)
+        # Basic CE
+        los_pos = y * torch.log(xs_pos.clamp(min=1e-8))
+        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=1e-8))
+        loss = los_pos + los_neg
+        # Asymmetric focusing
+        if self.gamma_neg > 0 or self.gamma_pos > 0:
+            if self.disable_torch_grad_focal_loss:
+                torch.set_grad_enabled(False)
+            pt0 = xs_pos * y
+            pt1 = xs_neg * (1 - y)
+            pt = pt0 + pt1
+            one_sided_gamma = self.gamma_pos * y + self.gamma_neg * (1 - y)
+            one_sided_w = torch.pow(1 - pt, one_sided_gamma)
+            if self.disable_torch_grad_focal_loss:
+                torch.set_grad_enabled(True)
+            loss *= one_sided_w
+        return -loss.mean()
 
 
 def _build_token_model(
@@ -332,6 +381,22 @@ def _build_token_model(
     n_layers: int,
     n_heads: int,
     dropout: float,
+    # Phase 1 improvements
+    use_asl: bool = False,
+    asl_gamma_neg: float = 4.0,
+    asl_gamma_pos: float = 0.0,
+    asl_clip: float = 0.05,
+    use_logit_adj: bool = False,
+    dir_class_prior: object = None,  # Optional tensor
+    logit_adj_tau: float = 1.0,
+    use_cascaded_heads: bool = False,
+    mixup_alpha: float = 0.0,
+    use_mt_cp: bool = False,
+    mt_cp_period: int = 100,
+    use_feature_gate: bool = False,
+    feature_gate_l1: float = 0.001,
+    use_dist_boundary_weight: bool = False,
+    dist_boundary_scale: float = 8.0,
 ):
     """
     Token transformer that operates directly on discrete texture IDs (5x5 window).
@@ -358,6 +423,14 @@ def _build_token_model(
             self.local_proj = nn.Linear(1, self.hidden, bias=True)
             self.pos_emb = nn.Embedding(seq_len, self.hidden)
 
+            # Boundary complexity weighting for direction loss
+            # Weight direction loss higher for cells with more unique neighbor textures
+            # Rationale: 100% of direction errors occur at cells with 8 different neighbors
+            self.use_boundary_complexity_weighting = False  # Enabled via --boundary-complexity-weighting CLI flag
+            # Weights for different complexity levels:
+            # [1-2 unique, 3-4 unique, 5-6 unique, 7-8 unique]
+            self.register_buffer('complexity_weights', torch.tensor([1.0, 1.5, 2.0, 3.0], dtype=torch.float32))
+
             enc_layer = nn.TransformerEncoderLayer(
                 d_model=self.hidden,
                 nhead=int(n_heads),
@@ -369,7 +442,19 @@ def _build_token_model(
             )
             self.encoder = nn.TransformerEncoder(enc_layer, num_layers=int(n_layers))
 
-            self.extra_proj = nn.Linear(int(extra_dim), self.hidden) if int(extra_dim) > 0 else None
+            # --- Phase 1: Feature Gate with L1 Regularization ---
+            self._use_feature_gate = bool(use_feature_gate)
+            self._feature_gate_l1 = float(feature_gate_l1)
+            _eff_extra_dim = int(extra_dim)
+            if _eff_extra_dim > 0 and self._use_feature_gate:
+                self.feature_gate = nn.Parameter(torch.ones(_eff_extra_dim))
+                self.extra_proj = nn.Linear(_eff_extra_dim, self.hidden)
+            elif _eff_extra_dim > 0:
+                self.feature_gate = None
+                self.extra_proj = nn.Linear(_eff_extra_dim, self.hidden)
+            else:
+                self.feature_gate = None
+                self.extra_proj = None
             self.map_style_proj = nn.Linear(int(map_style_dim), self.hidden) if int(map_style_dim) > 0 else None
 
             # Heads - blend_present and blend_mask use center token
@@ -381,16 +466,16 @@ def _build_token_model(
             # Input: pooled features from 8 neighbor positions (position-aware)
             self.neighbor_idxs = [6, 7, 8, 11, 13, 16, 17, 18]  # 8 neighbor positions in 5x5
             neighbor_pooled_dim = self.hidden  # We'll use attention-pooled neighbors
-            
+
             # Position-aware direction: pool neighbor embeddings with attention
             self.dir_query = nn.Parameter(torch.randn(1, 1, self.hidden) * 0.02)
             self.dir_attn = nn.MultiheadAttention(self.hidden, num_heads=4, batch_first=True)
-            
+
             # Hierarchical direction heads
             self.blend_dir_row = nn.Linear(self.hidden, 3)   # top=0, mid=1, bottom=2
             self.blend_dir_col = nn.Linear(self.hidden, 3)   # left=0, mid=1, right=2
             self.blend_dir_type = nn.Linear(self.hidden, 3)  # straight=0, diagonal=1, except=2
-            
+
             # Legacy: keep original direction head for compatibility
             self.blend_dir = nn.Linear(self.hidden, int(dir_num_classes))
 
@@ -409,13 +494,98 @@ def _build_token_model(
             self.loss_weight_mask = 1.0
             self.loss_weight_dir = 1.0
             self.loss_weight_consistency = 0.5
-            
+
             # Direction class weights (inverse frequency)
             # Computed from training data - see analysis
             self.register_buffer('dir_class_weights', torch.tensor([
-                0.0, 0.5, 0.5, 0.9, 0.9, 0.5, 0.5, 0.9, 0.9, 
+                0.0, 0.5, 0.5, 0.9, 0.9, 0.5, 0.5, 0.9, 0.9,
                 10.0, 10.0, 1.0, 1.0, 10.0, 10.0, 1.0, 1.0
             ], dtype=torch.float32))
+
+            # --- Phase 1: ASL for neighbor mask ---
+            self._use_asl = bool(use_asl)
+            if self._use_asl:
+                self._asl_fn = AsymmetricLoss(
+                    gamma_neg=float(asl_gamma_neg),
+                    gamma_pos=float(asl_gamma_pos),
+                    clip=float(asl_clip),
+                )
+            else:
+                self._asl_fn = None
+
+            # --- Phase 1: Logit Adjustment for direction head ---
+            self._use_logit_adj = bool(use_logit_adj)
+            if self._use_logit_adj and dir_class_prior is not None:
+                _prior = dir_class_prior if isinstance(dir_class_prior, torch.Tensor) else torch.tensor(dir_class_prior, dtype=torch.float32)
+                _log_prior = float(logit_adj_tau) * torch.log(_prior + 1e-12)
+                self.register_buffer('dir_log_prior', _log_prior)
+            else:
+                self._use_logit_adj = False
+                self.register_buffer('dir_log_prior', torch.zeros(int(dir_num_classes)))
+
+            # --- Phase 1: Cascaded output heads ---
+            self._use_cascaded_heads = bool(use_cascaded_heads)
+
+            # --- Phase 1: Embedding-space MixUp ---
+            self.mixup_alpha = float(mixup_alpha)
+
+            # --- Phase 1: MT-CP Loss Prioritization ---
+            self._use_mt_cp = bool(use_mt_cp)
+            self._mt_cp_period = int(mt_cp_period)
+            self._mt_cp_step = 0
+            self._task_loss_history = {'present': [], 'mask': [], 'dir': []}
+            self._task_initial_loss = {}
+            # Dynamic weights start at 1.0 (uniform); updated every mt_cp_period steps
+            self._mt_cp_weights = {'present': 1.0, 'mask': 1.0, 'dir': 1.0}
+
+            # --- Phase 1: Distance-to-boundary weighting ---
+            self._use_dist_boundary_weight = bool(use_dist_boundary_weight)
+            self._dist_boundary_scale = float(dist_boundary_scale)
+
+        def _compute_boundary_complexity(self, tex: torch.Tensor) -> torch.Tensor:
+            """
+            Compute the number of unique textures among the 8 neighbors for each sample.
+            tex: [B, 25] texture IDs (5x5 flattened row-major)
+            Returns: [B] int tensor with values 1-8 (number of unique neighbor textures)
+            """
+            # Neighbor indices in flattened 5x5: TL=6, T=7, TR=8, L=11, R=13, BL=16, B=17, BR=18
+            neighbor_tex = tex[:, self.neighbor_idxs]  # [B, 8]
+            # Count unique values per row - use a loop since torch.unique doesn't support batch mode
+            B = neighbor_tex.shape[0]
+            unique_counts = torch.zeros(B, dtype=torch.long, device=tex.device)
+            for i in range(B):
+                unique_counts[i] = torch.unique(neighbor_tex[i]).numel()
+            return unique_counts
+
+        def _compute_boundary_complexity_fast(self, tex: torch.Tensor) -> torch.Tensor:
+            """
+            Fast vectorized computation of boundary complexity.
+            tex: [B, 25] texture IDs (5x5 flattened row-major)
+            Returns: [B] int tensor with values 1-8 (number of unique neighbor textures)
+
+            Uses sorting + diff to count uniques without per-sample loops.
+            """
+            neighbor_tex = tex[:, self.neighbor_idxs]  # [B, 8]
+            # Sort each row
+            sorted_tex, _ = torch.sort(neighbor_tex, dim=1)
+            # Count transitions (where sorted[i] != sorted[i-1])
+            # Pad with -1 at start to count first element as a unique
+            padded = torch.cat([torch.full((sorted_tex.shape[0], 1), -1, device=tex.device, dtype=tex.dtype), sorted_tex], dim=1)
+            transitions = (padded[:, 1:] != padded[:, :-1]).sum(dim=1)  # [B]
+            return transitions
+
+        def _get_complexity_weight(self, unique_counts: torch.Tensor) -> torch.Tensor:
+            """
+            Map unique neighbor counts (1-8) to complexity weight multipliers.
+            unique_counts: [B] int tensor with values 1-8
+            Returns: [B] float tensor with weights
+            """
+            # Map 1-2 -> index 0 (weight 1.0)
+            # Map 3-4 -> index 1 (weight 1.5)
+            # Map 5-6 -> index 2 (weight 2.0)
+            # Map 7-8 -> index 3 (weight 3.0)
+            weight_idx = torch.clamp((unique_counts - 1) // 2, 0, 3)
+            return self.complexity_weights[weight_idx]
 
         @staticmethod
         def _focal_loss(logits: torch.Tensor, targets: torch.Tensor, gamma: float, alpha: float) -> torch.Tensor:
@@ -433,10 +603,39 @@ def _build_token_model(
                 return logits.new_zeros(())
             return F.cross_entropy(logits[mask], target[mask], weight=weight, reduction="mean")
 
+        @staticmethod
+        def _masked_ce_weighted(
+            logits: torch.Tensor,
+            target: torch.Tensor,
+            sample_weights: torch.Tensor,
+            class_weight: torch.Tensor = None,
+        ) -> torch.Tensor:
+            """
+            Cross-entropy with per-sample weights (for complexity weighting).
+            logits: [B, C]
+            target: [B] with -100 for ignored samples
+            sample_weights: [B] per-sample importance weights
+            class_weight: [C] optional class weights
+            Returns: weighted mean loss
+            """
+            mask = target != -100
+            if not torch.any(mask):
+                return logits.new_zeros(())
+            # Compute per-sample CE loss
+            per_sample_loss = F.cross_entropy(
+                logits[mask], target[mask], weight=class_weight, reduction="none"
+            )
+            # Apply sample weights
+            weights_masked = sample_weights[mask]
+            weighted_loss = per_sample_loss * weights_masked
+            # Normalize by sum of weights (weighted mean)
+            return weighted_loss.sum() / weights_masked.sum().clamp(min=1e-8)
+
         def _masked_bce_mask8(self, logits8: torch.Tensor, mask_u8: torch.Tensor) -> torch.Tensor:
             """
             logits8: [B,8]
             mask_u8: [B] uint8 stored in labels as int64; 255 => ignore
+            Uses ASL if enabled, otherwise standard BCE.
             """
             valid = mask_u8 != int(self.ignore_mask)
             if not torch.any(valid):
@@ -444,6 +643,8 @@ def _build_token_model(
             m = mask_u8[valid].to(torch.int64)
             # unpack bits into targets [Bv,8]
             bits = torch.stack([(m >> i) & 1 for i in range(8)], dim=1).to(dtype=logits8.dtype)
+            if self._use_asl and self._asl_fn is not None:
+                return self._asl_fn(logits8[valid], bits)
             return F.binary_cross_entropy_with_logits(logits8[valid], bits, reduction="mean")
 
         @staticmethod
@@ -484,6 +685,7 @@ def _build_token_model(
             tex_local_norm: Optional[torch.Tensor] = None,
             extra_features: Optional[torch.Tensor] = None,
             map_style: Optional[torch.Tensor] = None,
+            dist_to_boundary: Optional[torch.Tensor] = None,
         ):
             # tex: [B,25] global ids
             # elev_z: [B,25] normalized
@@ -494,37 +696,78 @@ def _build_token_model(
             x = x + self.elev_proj(elev_z.unsqueeze(-1)) + self.pos_emb(pos)
             if tex_local_norm is not None:
                 x = x + self.local_proj(tex_local_norm.unsqueeze(-1))
+
+            # --- Phase 1: Embedding-space MixUp ---
+            mixup_perm = None
+            mixup_lam = 1.0
+            if self.training and self.mixup_alpha > 0:
+                mixup_lam = float(torch.distributions.Beta(self.mixup_alpha, self.mixup_alpha).sample())
+                mixup_perm = torch.randperm(B, device=x.device)
+                x = mixup_lam * x + (1.0 - mixup_lam) * x[mixup_perm]
+
             x = self.encoder(x)  # [B,25,H]
 
             # Center pooled for present/mask
             pooled = x[:, center_idx, :]  # center cell representation
             if self.extra_proj is not None and extra_features is not None:
-                pooled = pooled + self.extra_proj(extra_features)
+                # --- Phase 1: Feature Gate with L1 ---
+                ef = extra_features
+                if self._use_feature_gate and self.feature_gate is not None:
+                    ef = ef * self.feature_gate
+                pooled = pooled + self.extra_proj(ef)
             if self.map_style_proj is not None and map_style is not None:
                 pooled = pooled + self.map_style_proj(map_style)
 
             # Position-aware pooled for direction
             dir_pooled = self._get_dir_pooled(x)
             if self.extra_proj is not None and extra_features is not None:
-                dir_pooled = dir_pooled + self.extra_proj(extra_features)
+                ef_dir = extra_features
+                if self._use_feature_gate and self.feature_gate is not None:
+                    ef_dir = ef_dir * self.feature_gate
+                dir_pooled = dir_pooled + self.extra_proj(ef_dir)
             if self.map_style_proj is not None and map_style is not None:
                 dir_pooled = dir_pooled + self.map_style_proj(map_style)
 
-            b_present = self.blend_present(pooled).squeeze(-1)  # [B]
+            b_present_logit = self.blend_present(pooled).squeeze(-1)  # [B]
             b_mask = self.blend_mask(pooled)  # [B,8]
-            
+
             # Hierarchical direction using position-aware features
             b_dir_row = self.blend_dir_row(dir_pooled)   # [B, 3]
             b_dir_col = self.blend_dir_col(dir_pooled)   # [B, 3]
             b_dir_type = self.blend_dir_type(dir_pooled) # [B, 3]
             b_dir = self.blend_dir(dir_pooled)  # [B,D] legacy head
 
-            se_present = self.se_present(pooled).squeeze(-1)
+            se_present_logit = self.se_present(pooled).squeeze(-1)
             se_mask = self.se_mask(pooled)
             se_dir_row = self.se_dir_row(dir_pooled)
             se_dir_col = self.se_dir_col(dir_pooled)
             se_dir_type = self.se_dir_type(dir_pooled)
             se_dir = self.se_dir(dir_pooled)
+
+            # --- Phase 1: Cascaded output heads ---
+            if self._use_cascaded_heads:
+                b_gate = torch.sigmoid(b_present_logit.detach()).unsqueeze(-1)  # [B,1]
+                b_mask = b_mask * b_gate
+                b_dir = b_dir * b_gate
+                b_dir_row = b_dir_row * b_gate
+                b_dir_col = b_dir_col * b_gate
+                b_dir_type = b_dir_type * b_gate
+
+                se_gate = torch.sigmoid(se_present_logit.detach()).unsqueeze(-1)  # [B,1]
+                se_mask = se_mask * se_gate
+                se_dir = se_dir * se_gate
+                se_dir_row = se_dir_row * se_gate
+                se_dir_col = se_dir_col * se_gate
+                se_dir_type = se_dir_type * se_gate
+
+            # --- Phase 1: Logit Adjustment for direction ---
+            if self._use_logit_adj:
+                b_dir = b_dir + self.dir_log_prior
+                se_dir = se_dir + self.dir_log_prior
+
+            # Alias for output compatibility
+            b_present = b_present_logit
+            se_present = se_present_logit
 
             loss = None
             if labels is not None:
@@ -536,6 +779,20 @@ def _build_token_model(
                 se_mask_y = labels[:, 4].long()
                 se_dir_y = labels[:, 5].long()
 
+                # --- Phase 1: MixUp label mixing ---
+                if mixup_perm is not None:
+                    lam = mixup_lam
+                    # Mix continuous targets (present)
+                    b_present_y = lam * b_present_y + (1.0 - lam) * b_present_y[mixup_perm]
+                    se_present_y = lam * se_present_y + (1.0 - lam) * se_present_y[mixup_perm]
+                    # For mask labels (uint8 bit-packed): mix the unpacked bit targets later
+                    # We can't meaningfully mix discrete mask/dir labels, so we mix the losses instead.
+                    # Compute losses for original and permuted targets, then combine.
+                    b_mask_y_perm = b_mask_y[mixup_perm]
+                    b_dir_y_perm = b_dir_y[mixup_perm]
+                    se_mask_y_perm = se_mask_y[mixup_perm]
+                    se_dir_y_perm = se_dir_y[mixup_perm]
+
                 if bool(getattr(self, "use_focal_loss", False)):
                     loss_b_present = self._focal_loss(b_present, b_present_y, float(self.focal_gamma), float(self.focal_alpha))
                     loss_se_present = self._focal_loss(se_present, se_present_y, float(self.focal_gamma), float(self.focal_alpha))
@@ -543,33 +800,171 @@ def _build_token_model(
                     loss_b_present = F.binary_cross_entropy_with_logits(b_present, b_present_y, reduction="mean")
                     loss_se_present = F.binary_cross_entropy_with_logits(se_present, se_present_y, reduction="mean")
 
-                loss_b_mask = self._masked_bce_mask8(b_mask, b_mask_y)
-                loss_se_mask = self._masked_bce_mask8(se_mask, se_mask_y)
+                # Mask loss (with MixUp interpolation if active)
+                if mixup_perm is not None:
+                    loss_b_mask = lam * self._masked_bce_mask8(b_mask, b_mask_y) + (1.0 - lam) * self._masked_bce_mask8(b_mask, b_mask_y_perm)
+                    loss_se_mask = lam * self._masked_bce_mask8(se_mask, se_mask_y) + (1.0 - lam) * self._masked_bce_mask8(se_mask, se_mask_y_perm)
+                else:
+                    loss_b_mask = self._masked_bce_mask8(b_mask, b_mask_y)
+                    loss_se_mask = self._masked_bce_mask8(se_mask, se_mask_y)
 
-                # Direction loss with class weights
+                # Direction loss with class weights and boundary complexity weighting
+                # Complex boundaries (more unique neighbor textures) get higher weight
                 dir_weights = getattr(self, 'dir_class_weights', None)
-                loss_b_dir = self._masked_ce(b_dir, b_dir_y, weight=dir_weights)
-                loss_se_dir = self._masked_ce(se_dir, se_dir_y, weight=dir_weights)
-                
+
+                if getattr(self, 'use_boundary_complexity_weighting', False):
+                    # Compute boundary complexity: number of unique textures among 8 neighbors
+                    unique_counts = self._compute_boundary_complexity_fast(tex)
+                    complexity_sample_weights = self._get_complexity_weight(unique_counts)
+
+                    # Use weighted CE for direction losses (with MixUp interpolation if active)
+                    if mixup_perm is not None:
+                        loss_b_dir = lam * self._masked_ce_weighted(b_dir, b_dir_y, complexity_sample_weights, class_weight=dir_weights) + (1.0 - lam) * self._masked_ce_weighted(b_dir, b_dir_y_perm, complexity_sample_weights, class_weight=dir_weights)
+                        loss_se_dir = lam * self._masked_ce_weighted(se_dir, se_dir_y, complexity_sample_weights, class_weight=dir_weights) + (1.0 - lam) * self._masked_ce_weighted(se_dir, se_dir_y_perm, complexity_sample_weights, class_weight=dir_weights)
+                    else:
+                        loss_b_dir = self._masked_ce_weighted(b_dir, b_dir_y, complexity_sample_weights, class_weight=dir_weights)
+                        loss_se_dir = self._masked_ce_weighted(se_dir, se_dir_y, complexity_sample_weights, class_weight=dir_weights)
+                else:
+                    if mixup_perm is not None:
+                        loss_b_dir = lam * self._masked_ce(b_dir, b_dir_y, weight=dir_weights) + (1.0 - lam) * self._masked_ce(b_dir, b_dir_y_perm, weight=dir_weights)
+                        loss_se_dir = lam * self._masked_ce(se_dir, se_dir_y, weight=dir_weights) + (1.0 - lam) * self._masked_ce(se_dir, se_dir_y_perm, weight=dir_weights)
+                    else:
+                        loss_b_dir = self._masked_ce(b_dir, b_dir_y, weight=dir_weights)
+                        loss_se_dir = self._masked_ce(se_dir, se_dir_y, weight=dir_weights)
+
                 # Hierarchical direction losses (convert dir class to row/col/type)
                 # This mapping is computed on-the-fly from the direction class
                 b_dir_row_y, b_dir_col_y, b_dir_type_y = self._dir_to_hier(b_dir_y)
                 se_dir_row_y, se_dir_col_y, se_dir_type_y = self._dir_to_hier(se_dir_y)
-                
-                loss_b_hier = (
-                    self._masked_ce(b_dir_row, b_dir_row_y) +
-                    self._masked_ce(b_dir_col, b_dir_col_y) +
-                    self._masked_ce(b_dir_type, b_dir_type_y)
-                ) / 3.0
-                loss_se_hier = (
-                    self._masked_ce(se_dir_row, se_dir_row_y) +
-                    self._masked_ce(se_dir_col, se_dir_col_y) +
-                    self._masked_ce(se_dir_type, se_dir_type_y)
-                ) / 3.0
 
-                w_p = float(getattr(self, "loss_weight_present", 1.0))
-                w_m = float(getattr(self, "loss_weight_mask", 1.0))
-                w_d = float(getattr(self, "loss_weight_dir", 1.0))
+                if mixup_perm is not None:
+                    b_dir_row_y_p, b_dir_col_y_p, b_dir_type_y_p = self._dir_to_hier(b_dir_y_perm)
+                    se_dir_row_y_p, se_dir_col_y_p, se_dir_type_y_p = self._dir_to_hier(se_dir_y_perm)
+
+                if getattr(self, 'use_boundary_complexity_weighting', False):
+                    if mixup_perm is not None:
+                        loss_b_hier = lam * (
+                            self._masked_ce_weighted(b_dir_row, b_dir_row_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_col, b_dir_col_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_type, b_dir_type_y, complexity_sample_weights)
+                        ) / 3.0 + (1.0 - lam) * (
+                            self._masked_ce_weighted(b_dir_row, b_dir_row_y_p, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_col, b_dir_col_y_p, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_type, b_dir_type_y_p, complexity_sample_weights)
+                        ) / 3.0
+                        loss_se_hier = lam * (
+                            self._masked_ce_weighted(se_dir_row, se_dir_row_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_col, se_dir_col_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_type, se_dir_type_y, complexity_sample_weights)
+                        ) / 3.0 + (1.0 - lam) * (
+                            self._masked_ce_weighted(se_dir_row, se_dir_row_y_p, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_col, se_dir_col_y_p, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_type, se_dir_type_y_p, complexity_sample_weights)
+                        ) / 3.0
+                    else:
+                        # Also apply complexity weighting to hierarchical direction losses
+                        loss_b_hier = (
+                            self._masked_ce_weighted(b_dir_row, b_dir_row_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_col, b_dir_col_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(b_dir_type, b_dir_type_y, complexity_sample_weights)
+                        ) / 3.0
+                        loss_se_hier = (
+                            self._masked_ce_weighted(se_dir_row, se_dir_row_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_col, se_dir_col_y, complexity_sample_weights) +
+                            self._masked_ce_weighted(se_dir_type, se_dir_type_y, complexity_sample_weights)
+                        ) / 3.0
+                else:
+                    if mixup_perm is not None:
+                        loss_b_hier = lam * (
+                            self._masked_ce(b_dir_row, b_dir_row_y) +
+                            self._masked_ce(b_dir_col, b_dir_col_y) +
+                            self._masked_ce(b_dir_type, b_dir_type_y)
+                        ) / 3.0 + (1.0 - lam) * (
+                            self._masked_ce(b_dir_row, b_dir_row_y_p) +
+                            self._masked_ce(b_dir_col, b_dir_col_y_p) +
+                            self._masked_ce(b_dir_type, b_dir_type_y_p)
+                        ) / 3.0
+                        loss_se_hier = lam * (
+                            self._masked_ce(se_dir_row, se_dir_row_y) +
+                            self._masked_ce(se_dir_col, se_dir_col_y) +
+                            self._masked_ce(se_dir_type, se_dir_type_y)
+                        ) / 3.0 + (1.0 - lam) * (
+                            self._masked_ce(se_dir_row, se_dir_row_y_p) +
+                            self._masked_ce(se_dir_col, se_dir_col_y_p) +
+                            self._masked_ce(se_dir_type, se_dir_type_y_p)
+                        ) / 3.0
+                    else:
+                        loss_b_hier = (
+                            self._masked_ce(b_dir_row, b_dir_row_y) +
+                            self._masked_ce(b_dir_col, b_dir_col_y) +
+                            self._masked_ce(b_dir_type, b_dir_type_y)
+                        ) / 3.0
+                        loss_se_hier = (
+                            self._masked_ce(se_dir_row, se_dir_row_y) +
+                            self._masked_ce(se_dir_col, se_dir_col_y) +
+                            self._masked_ce(se_dir_type, se_dir_type_y)
+                        ) / 3.0
+
+                # Combined direction loss: original + hierarchical
+                loss_dir_combined = (loss_b_dir + loss_b_hier) + (loss_se_dir + loss_se_hier)
+
+                # Aggregate per-task losses (for MT-CP and weighting)
+                loss_present_total = loss_b_present + loss_se_present
+                loss_mask_total = loss_b_mask + loss_se_mask
+
+                # --- Phase 1: MT-CP Loss Prioritization ---
+                if self._use_mt_cp and self.training:
+                    # Track per-task losses
+                    self._task_loss_history['present'].append(float(loss_present_total.detach()))
+                    self._task_loss_history['mask'].append(float(loss_mask_total.detach()))
+                    self._task_loss_history['dir'].append(float(loss_dir_combined.detach()))
+                    self._mt_cp_step += 1
+
+                    # Record initial losses (first batch)
+                    if not self._task_initial_loss:
+                        self._task_initial_loss = {
+                            'present': max(float(loss_present_total.detach()), 1e-8),
+                            'mask': max(float(loss_mask_total.detach()), 1e-8),
+                            'dir': max(float(loss_dir_combined.detach()), 1e-8),
+                        }
+
+                    # Update weights every mt_cp_period steps
+                    if self._mt_cp_step % self._mt_cp_period == 0 and len(self._task_loss_history['present']) >= self._mt_cp_period:
+                        # Compute recent average loss per task
+                        recent_n = self._mt_cp_period
+                        avg_present = sum(self._task_loss_history['present'][-recent_n:]) / recent_n
+                        avg_mask = sum(self._task_loss_history['mask'][-recent_n:]) / recent_n
+                        avg_dir = sum(self._task_loss_history['dir'][-recent_n:]) / recent_n
+
+                        # Ratio of current to initial loss (lower ratio = task is easier/more progressed)
+                        ratios = torch.tensor([
+                            avg_present / self._task_initial_loss['present'],
+                            avg_mask / self._task_initial_loss['mask'],
+                            avg_dir / self._task_initial_loss['dir'],
+                        ], dtype=torch.float32)
+
+                        # Softmax over ratios: harder tasks (higher ratio) get higher weight
+                        weights = torch.softmax(ratios, dim=0) * 3.0  # scale so they sum to 3 (average weight = 1)
+                        self._mt_cp_weights = {
+                            'present': float(weights[0]),
+                            'mask': float(weights[1]),
+                            'dir': float(weights[2]),
+                        }
+
+                        # Trim history to avoid unbounded memory growth
+                        max_hist = self._mt_cp_period * 10
+                        for k in self._task_loss_history:
+                            if len(self._task_loss_history[k]) > max_hist:
+                                self._task_loss_history[k] = self._task_loss_history[k][-max_hist:]
+
+                    w_p = self._mt_cp_weights['present']
+                    w_m = self._mt_cp_weights['mask']
+                    w_d = self._mt_cp_weights['dir']
+                else:
+                    w_p = float(getattr(self, "loss_weight_present", 1.0))
+                    w_m = float(getattr(self, "loss_weight_mask", 1.0))
+                    w_d = float(getattr(self, "loss_weight_dir", 1.0))
+
                 w_c = float(getattr(self, "loss_weight_consistency", 0.0))
 
                 # Consistency loss (only where mask label is known; negatives are known with mask=0).
@@ -583,15 +978,21 @@ def _build_token_model(
                 loss_cons_b = (-(b_present_y * torch.log(pb) + (1 - b_present_y) * torch.log(1 - pb)) * valid_bm).sum() / torch.clamp(valid_bm.sum(), min=1.0)
                 loss_cons_s = (-(se_present_y * torch.log(ps) + (1 - se_present_y) * torch.log(1 - ps)) * valid_sm).sum() / torch.clamp(valid_sm.sum(), min=1.0)
 
-                # Combined direction loss: original + hierarchical
-                loss_dir_combined = (loss_b_dir + loss_b_hier) + (loss_se_dir + loss_se_hier)
-
                 loss = (
-                    w_p * loss_b_present + w_m * loss_b_mask +
-                    w_p * loss_se_present + w_m * loss_se_mask +
+                    w_p * loss_present_total + w_m * loss_mask_total +
                     w_d * loss_dir_combined +
                     w_c * (loss_cons_b + loss_cons_s)
                 )
+
+                # --- Phase 1: Feature Gate L1 regularization ---
+                if self._use_feature_gate and self.feature_gate is not None:
+                    l1_loss = self._feature_gate_l1 * self.feature_gate.abs().mean()
+                    loss = loss + l1_loss
+
+                # --- Phase 1: Distance-to-boundary weighting ---
+                if self._use_dist_boundary_weight and dist_to_boundary is not None:
+                    boundary_weight = 1.0 + self._dist_boundary_scale * torch.exp(-dist_to_boundary.float())
+                    loss = loss * boundary_weight.mean()
 
             logits = (b_present, b_mask, b_dir, se_present, se_mask, se_dir)
             return {
@@ -1003,8 +1404,8 @@ def main() -> int:
     ap.add_argument(
         "--focal-alpha",
         type=float,
-        default=0.10,
-        help="Focal Loss alpha (positive class weight). Lower = prioritize precision over recall.",
+        default=0.25,
+        help="Focal Loss alpha (positive class weight). 0.25 optimal for ~8%% positive rate. Lower = prioritize precision over recall.",
     )
     ap.add_argument(
         "--loss-weight-present",
@@ -1029,6 +1430,38 @@ def main() -> int:
         type=float,
         default=0.5,
         help="Aux loss weight tying present to predicted mask-any (token arch). Higher => fewer false positives.",
+    )
+    ap.add_argument(
+        "--boundary-complexity-weighting",
+        action="store_true",
+        help=(
+            "Weight direction loss by boundary complexity (number of unique neighbor textures). "
+            "Cells with more different neighbors get higher weight. Addresses errors at complex junctions."
+        ),
+    )
+    ap.add_argument(
+        "--complexity-weight-1-2",
+        type=float,
+        default=1.0,
+        help="Direction loss weight for cells with 1-2 unique neighbor textures.",
+    )
+    ap.add_argument(
+        "--complexity-weight-3-4",
+        type=float,
+        default=1.5,
+        help="Direction loss weight for cells with 3-4 unique neighbor textures.",
+    )
+    ap.add_argument(
+        "--complexity-weight-5-6",
+        type=float,
+        default=2.0,
+        help="Direction loss weight for cells with 5-6 unique neighbor textures.",
+    )
+    ap.add_argument(
+        "--complexity-weight-7-8",
+        type=float,
+        default=3.0,
+        help="Direction loss weight for cells with 7-8 unique neighbor textures (maximum complexity).",
     )
     ap.add_argument(
         "--semantic-palette",
@@ -1086,6 +1519,51 @@ def main() -> int:
         default=0.002,
         help="Minimum absolute improvement required to reset patience.",
     )
+    # --- Phase 1 improvement flags ---
+    ap.add_argument(
+        "--use-asl",
+        action="store_true",
+        help="Use Asymmetric Loss (ASL) for the 8-bit neighbor mask instead of BCE. Better for imbalanced multi-label.",
+    )
+    ap.add_argument("--asl-gamma-neg", type=float, default=4.0, help="ASL gamma for negative samples (higher = more suppression of easy negatives).")
+    ap.add_argument("--asl-gamma-pos", type=float, default=0.0, help="ASL gamma for positive samples.")
+    ap.add_argument("--asl-clip", type=float, default=0.05, help="ASL probability clipping for negatives.")
+    ap.add_argument(
+        "--use-logit-adj",
+        action="store_true",
+        help="Apply logit adjustment to direction head using class priors (long-tail correction).",
+    )
+    ap.add_argument("--logit-adj-tau", type=float, default=1.0, help="Temperature for logit adjustment (tau * log(prior)).")
+    ap.add_argument(
+        "--use-cascaded-heads",
+        action="store_true",
+        help="Gate mask and direction logits by present probability (cascaded output heads).",
+    )
+    ap.add_argument(
+        "--mixup-alpha",
+        type=float,
+        default=0.0,
+        help="Alpha for Beta distribution in embedding-space MixUp. 0 disables. Recommended: 0.2.",
+    )
+    ap.add_argument(
+        "--use-mt-cp",
+        action="store_true",
+        help="Use MT-CP automatic multi-task loss balancing (replaces manual loss weights).",
+    )
+    ap.add_argument("--mt-cp-period", type=int, default=100, help="Steps between MT-CP weight updates.")
+    ap.add_argument(
+        "--use-feature-gate",
+        action="store_true",
+        help="Add learnable per-feature gate with L1 regularization to extra features.",
+    )
+    ap.add_argument("--feature-gate-l1", type=float, default=0.001, help="L1 regularization coefficient for feature gate.")
+    ap.add_argument(
+        "--use-dist-boundary-weight",
+        action="store_true",
+        help="Weight loss by distance-to-boundary (cells near texture boundaries get higher weight).",
+    )
+    ap.add_argument("--dist-boundary-scale", type=float, default=8.0, help="Scale factor for boundary distance weighting: w = 1 + scale * exp(-dist).")
+
     args = ap.parse_args()
 
     cuda_ok = bool(torch.cuda.is_available())
@@ -1212,6 +1690,35 @@ def main() -> int:
     train_ds = BlendDataset(tex, tex_local_norm, elev, extra, ybp, ybm, ybs, ybd, ysp, ysm, yss, ysd, map_style, train_idx)
     val_ds = BlendDataset(tex, tex_local_norm, elev, extra, ybp, ybm, ybs, ybd, ysp, ysm, yss, ysd, map_style, val_idx)
 
+    # --- Phase 1: Determine dist_to_boundary extra feature index ---
+    dist_boundary_extra_idx = -1
+    if meta.extra_feature_names:
+        for i, name in enumerate(meta.extra_feature_names):
+            if name == "dist_to_boundary":
+                dist_boundary_extra_idx = i
+                break
+    if bool(args.use_dist_boundary_weight) and dist_boundary_extra_idx < 0:
+        print("[warn] --use-dist-boundary-weight requested but 'dist_to_boundary' not found in extra features. Disabling.")
+        args.use_dist_boundary_weight = False
+    elif bool(args.use_dist_boundary_weight):
+        print(f"[phase1] dist_to_boundary found at extra feature index {dist_boundary_extra_idx}")
+
+    # --- Phase 1: Compute direction class priors for logit adjustment ---
+    dir_class_prior_tensor = None
+    if bool(args.use_logit_adj):
+        # Compute class prior from training data direction labels
+        import torch as _torch_tmp
+        dir_counts = np.zeros(int(meta.dir_num_classes), dtype=np.float64)
+        sampled_dirs = np.asarray(ybd[train_idx], dtype=np.int64)
+        valid_dirs = sampled_dirs[sampled_dirs >= 0]
+        valid_dirs = valid_dirs[valid_dirs < int(meta.dir_num_classes)]
+        for d in valid_dirs:
+            dir_counts[d] += 1.0
+        total = max(dir_counts.sum(), 1.0)
+        dir_class_prior_np = (dir_counts / total).astype(np.float32)
+        dir_class_prior_tensor = _torch_tmp.tensor(dir_class_prior_np, dtype=_torch_tmp.float32)
+        print(f"[phase1] Logit adjustment: tau={args.logit_adj_tau}, dir priors computed from {int(total)} samples")
+
     # Collator + model selection
     if str(args.arch).lower() == "token":
         print("[arch] Using token-transformer (recommended)")
@@ -1221,6 +1728,7 @@ def main() -> int:
             elev_std=meta.elev_std,
             mask_ignore_value=int(meta.mask_ignore_value),
             map_style_dim=int(meta.map_style_dim),
+            dist_boundary_extra_idx=dist_boundary_extra_idx if bool(args.use_dist_boundary_weight) else -1,
         )
         model = _build_token_model(
             num_textures=int(meta.num_textures),
@@ -1232,6 +1740,22 @@ def main() -> int:
             n_layers=int(args.token_layers),
             n_heads=int(args.token_heads),
             dropout=float(args.token_dropout),
+            # Phase 1 improvements
+            use_asl=bool(args.use_asl),
+            asl_gamma_neg=float(args.asl_gamma_neg),
+            asl_gamma_pos=float(args.asl_gamma_pos),
+            asl_clip=float(args.asl_clip),
+            use_logit_adj=bool(args.use_logit_adj),
+            dir_class_prior=dir_class_prior_tensor,
+            logit_adj_tau=float(args.logit_adj_tau),
+            use_cascaded_heads=bool(args.use_cascaded_heads),
+            mixup_alpha=float(args.mixup_alpha),
+            use_mt_cp=bool(args.use_mt_cp),
+            mt_cp_period=int(args.mt_cp_period),
+            use_feature_gate=bool(args.use_feature_gate),
+            feature_gate_l1=float(args.feature_gate_l1),
+            use_dist_boundary_weight=bool(args.use_dist_boundary_weight),
+            dist_boundary_scale=float(args.dist_boundary_scale),
         )
     else:
         print("[arch] Using ViT RGB palette (legacy)")
@@ -1308,6 +1832,50 @@ def main() -> int:
         model.loss_weight_consistency = float(args.loss_weight_consistency)  # type: ignore[attr-defined]
     except Exception:
         pass
+
+    # Configure boundary complexity weighting for direction loss (token arch only)
+    if bool(args.boundary_complexity_weighting) and str(args.arch).lower() == "token":
+        print(f"[loss] Boundary complexity weighting ENABLED")
+        print(f"       Weights: 1-2 neighbors={args.complexity_weight_1_2}, "
+              f"3-4={args.complexity_weight_3_4}, 5-6={args.complexity_weight_5_6}, "
+              f"7-8={args.complexity_weight_7_8}")
+        try:
+            model.use_boundary_complexity_weighting = True  # type: ignore[attr-defined]
+            # Update the complexity weights buffer
+            import torch
+            new_weights = torch.tensor([
+                float(args.complexity_weight_1_2),
+                float(args.complexity_weight_3_4),
+                float(args.complexity_weight_5_6),
+                float(args.complexity_weight_7_8),
+            ], dtype=torch.float32)
+            model.register_buffer('complexity_weights', new_weights)
+        except Exception as e:
+            print(f"[warn] Failed to configure complexity weighting: {e}")
+    elif bool(args.boundary_complexity_weighting) and str(args.arch).lower() != "token":
+        print(f"[warn] Boundary complexity weighting only supported for token architecture, ignoring.")
+
+    # --- Phase 1: Log enabled improvements ---
+    if str(args.arch).lower() == "token":
+        phase1_features = []
+        if bool(args.use_asl):
+            phase1_features.append(f"ASL(gamma_neg={args.asl_gamma_neg}, gamma_pos={args.asl_gamma_pos}, clip={args.asl_clip})")
+        if bool(args.use_logit_adj):
+            phase1_features.append(f"LogitAdj(tau={args.logit_adj_tau})")
+        if bool(args.use_cascaded_heads):
+            phase1_features.append("CascadedHeads")
+        if float(args.mixup_alpha) > 0:
+            phase1_features.append(f"MixUp(alpha={args.mixup_alpha})")
+        if bool(args.use_mt_cp):
+            phase1_features.append(f"MT-CP(period={args.mt_cp_period})")
+        if bool(args.use_feature_gate):
+            phase1_features.append(f"FeatureGate(L1={args.feature_gate_l1})")
+        if bool(args.use_dist_boundary_weight):
+            phase1_features.append(f"DistBoundaryWeight(scale={args.dist_boundary_scale})")
+        if phase1_features:
+            print(f"[phase1] Enabled improvements: {', '.join(phase1_features)}")
+        else:
+            print("[phase1] No Phase 1 improvements enabled (all disabled by default).")
 
     # TrainingArguments
     steps_per_epoch = math.ceil(len(train_ds) / max(1, int(args.batch_size)))

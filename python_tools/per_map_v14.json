@@ -1,0 +1,194 @@
+[
+  [
+    "map_mp_4_stewart_1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7058101368339772,
+      "present_prec": 0.7149716733453089,
+      "present_rec": 0.6968804188622704,
+      "present_acc": 0.8562807163681799,
+      "present_pos_rate": 0.24739275301957517,
+      "mask_bit_acc": 0.9268473352160573,
+      "mask_exact_acc": 0.7579366916527427,
+      "dir_acc": 0.801057256856176,
+      "n_cells_eval": 240100,
+      "n_blend_cells": 59399
+    }
+  ],
+  [
+    "[Archon]FriedRiver_CALDERA_TEMPLATE.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7369796448796435,
+      "present_prec": 0.7256227312554763,
+      "present_rec": 0.7486977111286504,
+      "present_acc": 0.88125,
+      "present_pos_rate": 0.22220982142857143,
+      "mask_bit_acc": 0.9433328135750156,
+      "mask_exact_acc": 0.8118035506458935,
+      "dir_acc": 0.8575303149888786,
+      "n_cells_eval": 313600,
+      "n_blend_cells": 69685
+    }
+  ],
+  [
+    "[archon]pyroclasm_1.2.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7400702616569841,
+      "present_prec": 0.7354534701819986,
+      "present_rec": 0.7447453828915849,
+      "present_acc": 0.8390011890606421,
+      "present_pos_rate": 0.3077526753864447,
+      "mask_bit_acc": 0.8986818103829726,
+      "mask_exact_acc": 0.6795227215946203,
+      "dir_acc": 0.7956784637972336,
+      "n_cells_eval": 336400,
+      "n_blend_cells": 103528
+    }
+  ],
+  [
+    "map_mp_4_feasel6.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.6477476543874089,
+      "present_prec": 0.634674414790168,
+      "present_rec": 0.6613707951132562,
+      "present_acc": 0.7545055555555555,
+      "present_pos_rate": 0.3412861111111111,
+      "mask_bit_acc": 0.8793794424560165,
+      "mask_exact_acc": 0.6159449513535313,
+      "dir_acc": 0.7570953012705208,
+      "n_cells_eval": 360000,
+      "n_blend_cells": 122863
+    }
+  ],
+  [
+    "map_mp_2_feasel7_ep1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7315080627958057,
+      "present_prec": 0.7367534076827758,
+      "present_rec": 0.7263368787972571,
+      "present_acc": 0.8144331065759637,
+      "present_pos_rate": 0.3480328798185941,
+      "mask_bit_acc": 0.9021503296073373,
+      "mask_exact_acc": 0.6822298652909143,
+      "dir_acc": 0.8155978694639454,
+      "n_cells_eval": 176400,
+      "n_blend_cells": 61393
+    }
+  ],
+  [
+    "map_mp_6_feasel1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.6858889332452642,
+      "present_prec": 0.6784940848754554,
+      "present_rec": 0.6934467494141133,
+      "present_acc": 0.846303297626549,
+      "present_pos_rate": 0.2419869775257299,
+      "mask_bit_acc": 0.929756945105984,
+      "mask_exact_acc": 0.764911099679709,
+      "dir_acc": 0.8504209704018748,
+      "n_cells_eval": 476100,
+      "n_blend_cells": 115210
+    }
+  ],
+  [
+    "map_mp_3_feasel1_ep1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.8121027205690401,
+      "present_prec": 0.7909520575083488,
+      "present_rec": 0.8344156328839925,
+      "present_acc": 0.9231123662306777,
+      "present_pos_rate": 0.19912901307966707,
+      "mask_bit_acc": 0.9537543206952684,
+      "mask_exact_acc": 0.8497432315353045,
+      "dir_acc": 0.7891531192619463,
+      "n_cells_eval": 336400,
+      "n_blend_cells": 66987
+    }
+  ],
+  [
+    "map_mp_2_feasel7.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7121333143671212,
+      "present_prec": 0.7200832005664719,
+      "present_rec": 0.7043570485487327,
+      "present_acc": 0.8641064049586776,
+      "present_pos_rate": 0.23864152892561982,
+      "mask_bit_acc": 0.9284321748966581,
+      "mask_exact_acc": 0.7645890564483759,
+      "dir_acc": 0.7984675656371074,
+      "n_cells_eval": 193600,
+      "n_blend_cells": 46201
+    }
+  ],
+  [
+    "map_mp_4_feasel11_ep1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.8415602241178279,
+      "present_prec": 0.846738122230238,
+      "present_rec": 0.836445267958951,
+      "present_acc": 0.9289807162534435,
+      "present_pos_rate": 0.2254912764003673,
+      "mask_bit_acc": 0.9440800358193207,
+      "mask_exact_acc": 0.8170183423614373,
+      "dir_acc": 0.8140067600586415,
+      "n_cells_eval": 435600,
+      "n_blend_cells": 98224
+    }
+  ],
+  [
+    "map_mp_5_feasel2.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.8347563397751865,
+      "present_prec": 0.8303381529395696,
+      "present_rec": 0.8392217960222063,
+      "present_acc": 0.91773681640625,
+      "present_pos_rate": 0.24759033203125,
+      "mask_bit_acc": 0.9403369463872331,
+      "mask_exact_acc": 0.8002799583752573,
+      "dir_acc": 0.8623549249110075,
+      "n_cells_eval": 409600,
+      "n_blend_cells": 101413
+    }
+  ],
+  [
+    "map_mp_2_feasel8_ep1.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.8482230387268147,
+      "present_prec": 0.847365319999363,
+      "present_rec": 0.8490824956119355,
+      "present_acc": 0.892046485260771,
+      "present_pos_rate": 0.35527210884353744,
+      "mask_bit_acc": 0.917329986647641,
+      "mask_exact_acc": 0.7271075810453809,
+      "dir_acc": 0.839317057603319,
+      "n_cells_eval": 176400,
+      "n_blend_cells": 62670
+    }
+  ],
+  [
+    "map_mp_2_feasel6.npz",
+    {
+      "present_threshold": 0.5,
+      "present_f1": 0.7540976730036213,
+      "present_prec": 0.7637163066335309,
+      "present_rec": 0.7447183098591549,
+      "present_acc": 0.9105491638183594,
+      "present_pos_rate": 0.184173583984375,
+      "mask_bit_acc": 0.9503099304969296,
+      "mask_exact_acc": 0.8350044138111814,
+      "dir_acc": 0.7783140016570008,
+      "n_cells_eval": 262144,
+      "n_blend_cells": 48280
+    }
+  ]
+]

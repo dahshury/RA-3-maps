@@ -32,12 +32,15 @@ class ObjectCategoryConfig:
     # Decorative/ambient prefixes to exclude
     DECORATIVE_PREFIXES = ['cc_', 'yu_', 'cs_', 'il_', 'hv_', 'amb_', 'yucatan', 'gc_', 'my_', 'sa_', 'mj_', 'th_']
     
-    # Decorative object keywords to exclude (even if they match building keywords)
-    DECORATIVE_KEYWORDS = ['idol', 'statue', 'rock', 'bush', 'tree', 'palm', 'coral', 
+    # Decorative object keywords to exclude (even if they match building keywords).
+    # Note: 'road', 'street', 'path', 'bridge' have been REMOVED from this list so the
+    # dedicated 'road' category below can match them. They are still skipped from being
+    # treated as buildings/garrisons because the 'road' category catches them first.
+    DECORATIVE_KEYWORDS = ['idol', 'statue', 'rock', 'bush', 'tree', 'palm', 'coral',
                            'grass', 'cliff', 'wall', 'fence', 'bench', 'table', 'cart',
                            'sign', 'fountain', 'umbrella', 'towel', 'board', 'auto',
                            'ship', 'sunken', 'bamboo', 'beach', 'lamp', 'lamppost',
-                           'road', 'street', 'path', 'bridge', 'decoration', 'deco',
+                           'decoration', 'deco',
                            'office', 'drum']  # Office buildings and oil drums are decorative, not gameplay objects
     
     # Waypoint/marker prefixes to exclude
@@ -67,6 +70,18 @@ class ObjectCategoryConfig:
             size=8,
             enabled=True,
             description='Oil derricks (excludes decorative oil drums)'
+        )
+
+        # Roads / paths / bridges. Drawn small + light so they trace road shapes
+        # without dominating the render. Critical for skin-debug: when objects
+        # are stripped, roads visibly disappear.
+        self.categories['road'] = ObjectCategory(
+            name='Road',
+            keywords=['road', 'street', 'path', 'bridge'],
+            color=(240, 240, 240),  # Near-white so roads are visible on any biome
+            size=3,  # small but readable
+            enabled=True,
+            description='Road / path / bridge segments (3D meshes placed on tiles)'
         )
         
         # Military Buildings - Construction
@@ -503,8 +518,14 @@ class ObjectCategoryConfig:
             for cat_key in ['garrison_tikihut', 'garrison_house', 'garrison_warehouse', 'garrison_other']:
                 if cat_key in self.categories:
                     garrison_keywords.extend(self.categories[cat_key].keywords)
+            # Exception: Allow road/path/bridge objects even with biome prefixes
+            # (e.g., YucatanDirtRoad01, YU_RoadStraight)
+            road_keywords = self.categories.get('road').keywords if 'road' in self.categories else []
             if any(keyword in type_name_lower for keyword in garrison_keywords):
                 # It's a garrison, don't exclude yet - let it be categorized as garrison
+                pass
+            elif any(keyword in type_name_lower for keyword in road_keywords):
+                # It's a road/path/bridge, don't exclude - let road category catch it
                 pass
             else:
                 # It's decorative, exclude it
@@ -530,6 +551,7 @@ class ObjectCategoryConfig:
         # IMPORTANT: Check garrison BEFORE decorative filtering, as garrisonable buildings
         # may have decorative prefixes (e.g., YU_TikiHut01)
         priority_order = [
+            'road',  # Roads/paths/bridges - check first so they don't get matched as buildings
             'ore_node', 'oil_derrick',  # Removed 'refinery' - now part of ore_node
             # Specific garrison types (check before war_factory to avoid "warehouse" matching "war")
             'garrison_tikihut', 'garrison_house', 'garrison_warehouse', 'garrison_other',

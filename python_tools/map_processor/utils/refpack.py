@@ -476,15 +476,15 @@ class _Compression:
             # Large header: flag (0x80) + 0xFB + 4-byte size (big-endian)
             header_size = 14
             out = bytearray(compressed_length + header_size + (0 if end_is_valid else 1))
-        out[0:4] = b"EAR\x00"
-        out[4:8] = struct.pack("<I", n)
-        out[8] = 0x80
-        out[9] = 0xFB
-        out[10] = (n >> 24) & 0xFF
-        out[11] = (n >> 16) & 0xFF
-        out[12] = (n >> 8) & 0xFF
-        out[13] = n & 0xFF
-        pos = 14
+            out[0:4] = b"EAR\x00"
+            out[4:8] = struct.pack("<I", n)
+            out[8] = 0x80
+            out[9] = 0xFB
+            out[10] = (n >> 24) & 0xFF
+            out[11] = (n >> 16) & 0xFF
+            out[12] = (n >> 8) & 0xFF
+            out[13] = n & 0xFF
+            pos = 14
         for ch in compressed_chunks:
             out[pos : pos + len(ch)] = ch
             pos += len(ch)

@@ -327,7 +327,7 @@ def _recursively_update_script_string_ids(asset, target_ctx: MapDataContext):
 
 
 def copy_ban_scripts_from_template(source_ctx: MapDataContext, template_ctx: MapDataContext, same_base: bool = False):
-    """Copy ban scripts from template map."""
+    """Copy ban scripts from template map - ADD ban scripts to existing base scripts."""
     template_scripts = template_ctx.get_asset('PlayerScriptsList')
     source_scripts = source_ctx.get_asset('PlayerScriptsList')
     
@@ -335,26 +335,80 @@ def copy_ban_scripts_from_template(source_ctx: MapDataContext, template_ctx: Map
         print("  Warning: Missing PlayerScriptsList in source or template")
         return
     
-    # For ban mode, copy the entire PlayerScriptsList structure from template
-    # First register all strings from all script lists
-    for script_list in template_scripts.script_lists:
-        _recursively_register_script_strings(script_list, source_ctx)
-    
     # Ensure all script-related strings are registered
     script_strings = ['PlayerScriptsList', 'ScriptList', 'ScriptGroup', 'Script', 
                       'OrCondition', 'Condition', 'ScriptAction', 'ScriptActionFalse']
     for s in script_strings:
         source_ctx.map_struct.register_string(s)
     
-    # Copy all script lists with proper string ID remapping
-    source_scripts.script_lists = []
-    for script_list in template_scripts.script_lists:
-        copied = copy.deepcopy(script_list)
-        update_asset_id(copied, source_ctx)
-        _recursively_update_script_string_ids(copied, source_ctx)
-        source_scripts.script_lists.append(copied)
-    
-    print(f"  Copied {len(template_scripts.script_lists)} script lists from template (including ban scripts)")
+    # For same base maps, copy entire structure
+    if same_base:
+        # Copy all script lists from template
+        source_scripts.script_lists = []
+        for script_list in template_scripts.script_lists:
+            # First register strings
+            _recursively_register_script_strings(script_list, source_ctx)
+            # Then copy with remapping
+            copied = copy.deepcopy(script_list)
+            update_asset_id(copied, source_ctx)
+            _recursively_update_script_string_ids(copied, source_ctx)
+            source_scripts.script_lists.append(copied)
+        print(f"  Copied {len(template_scripts.script_lists)} script lists from template")
+    else:
+        # For different base maps, ADD ban scripts to existing global script list (List 0)
+        # Ban scripts are typically in the global list (List 0) of the template
+        if len(template_scripts.script_lists) > 0:
+            template_global = template_scripts.script_lists[0]
+            
+            # Ensure source has a global script list
+            if len(source_scripts.script_lists) == 0:
+                from map_processor.assets.scripts.script_list import ScriptList
+                source_global = ScriptList()
+                source_global.id = source_ctx.map_struct.register_string("ScriptList")
+                source_global.version = 1
+                source_global.name = "ScriptList"
+                source_global.scripts = []
+                source_global.script_groups = []
+                source_scripts.script_lists.append(source_global)
+            else:
+                source_global = source_scripts.script_lists[0]
+            
+            # Register strings from ban scripts before copying
+            _recursively_register_script_strings(template_global, source_ctx)
+            
+            # Copy all scripts and groups from template's global list to source's global list
+            # This adds ban scripts while preserving base scripts
+            added_scripts = 0
+            added_groups = 0
+            
+            for script in template_global.scripts:
+                copied = copy.deepcopy(script)
+                update_asset_id(copied, source_ctx)
+                _recursively_update_script_string_ids(copied, source_ctx)
+                source_global.scripts.append(copied)
+                added_scripts += 1
+            
+            for group in template_global.script_groups:
+                copied = copy.deepcopy(group)
+                update_asset_id(copied, source_ctx)
+                _recursively_update_script_string_ids(copied, source_ctx)
+                source_global.script_groups.append(copied)
+                added_groups += 1
+            
+            print(f"  Added {added_scripts} ban scripts and {added_groups} ban groups to global list")
+            
+            # Ensure source has enough script lists (match template count for per-player lists)
+            while len(source_scripts.script_lists) < len(template_scripts.script_lists):
+                from map_processor.assets.scripts.script_list import ScriptList
+                new_list = ScriptList()
+                new_list.id = source_ctx.map_struct.register_string("ScriptList")
+                new_list.version = 1
+                new_list.name = "ScriptList"
+                new_list.scripts = []
+                new_list.script_groups = []
+                source_scripts.script_lists.append(new_list)
+        else:
+            print("  Warning: Template has no script lists")
 
 
 def are_maps_same_base(ctx1: MapDataContext, ctx2: MapDataContext) -> bool:
@@ -432,26 +486,36 @@ def transform_to_ban_mode(source_context: MapDataContext,
         print(f"  {result}")
         return context
     
-    # === Step 1: Copy missing strings from template FIRST ===
-    # This must happen before copying assets that reference strings
+    # === Step 1: Copy only ban-specific strings from template ===
+    # DO NOT copy all strings - only those needed for ban mode
+    # This prevents polluting the string pool with II-specific strings
     if template_context:
+        # Only copy strings that are actually used by ban teams/scripts
+        # We'll register them as we copy the teams/scripts
+        ban_strings = [
+            'ban_dummies', 'ban_dummies_phase1', 'ban_selected_p1', 'ban_selected_p1_structure',
+            'ban_selected_p1_water', 'ban_selected_p2', 'ban_selected_p2_structure', 
+            'ban_selected_p2_water', 'ban_yuriko', 'infoBoxes', 'readyBoxes',
+            'show_dummies', 'show_dumBuildings', 'skip1', 'skip2'
+        ]
         missing_strings = 0
-        for s in template_context.map_struct.string_pool:
-            if s not in context.map_struct.string_pool:
+        for s in ban_strings:
+            if s not in context.map_struct.string_pool and s in template_context.map_struct.string_pool:
                 context.map_struct.register_string(s)
                 missing_strings += 1
         if missing_strings > 0:
-            print(f"\n=== Added {missing_strings} missing strings from template ===")
+            print(f"\n=== Added {missing_strings} ban-specific strings from template ===")
     
-    # Also copy strings from GT if provided
+    # Copy FI-specific team strings from GT if provided
     if gt_context:
+        fi_team_strings = ['attackers', 'movers', 'utility']
         missing_gt_strings = 0
-        for s in gt_context.map_struct.string_pool:
-            if s not in context.map_struct.string_pool:
+        for s in fi_team_strings:
+            if s not in context.map_struct.string_pool and s in gt_context.map_struct.string_pool:
                 context.map_struct.register_string(s)
                 missing_gt_strings += 1
         if missing_gt_strings > 0:
-            print(f"  Added {missing_gt_strings} missing strings from ground truth")
+            print(f"  Added {missing_gt_strings} FI-specific team strings from ground truth")
     
     # === Step 2: Add ban-specific teams ===
     print("\n=== Adding ban mode teams ===")

@@ -30,6 +30,7 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy.ndimage import distance_transform_cdt
 
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
@@ -197,6 +198,112 @@ def _build_tex_type_biome_grids(
     biome_grid = biome_lut[tex_clipped]
     
     return type_grid, biome_grid
+
+
+def _compute_distance_to_boundary(tex_grid: np.ndarray) -> np.ndarray:
+    """
+    Compute Chebyshev distance to the nearest texture boundary for every cell.
+
+    A cell is on a boundary (distance=0) if any of its 4-connected neighbors has
+    a different base texture.  For interior cells the distance increases by 1 per
+    Chebyshev ring.
+
+    Uses ``scipy.ndimage.distance_transform_cdt`` with ``metric='chessboard'``
+    (Chebyshev) on a binary mask where boundary cells are 0 and interior cells are 1.
+
+    Parameters
+    ----------
+    tex_grid : ndarray, shape (W, H), int
+        Decoded base-texture index grid.
+
+    Returns
+    -------
+    dist : ndarray, shape (W, H), float32
+        Chebyshev distance to the nearest texture boundary.  Boundary cells have
+        distance 0.
+    """
+    tex = np.asarray(tex_grid, dtype=np.int32)
+    # Pad with edge values so that map-edge cells never look like boundaries
+    # just because they are at the array boundary.
+    tex_pad = np.pad(tex, pad_width=1, mode="edge")
+
+    # A cell is a boundary cell if ANY 4-connected neighbor differs.
+    is_boundary = np.zeros(tex_pad.shape, dtype=np.bool_)
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        shifted = np.roll(np.roll(tex_pad, dx, axis=0), dy, axis=1)
+        is_boundary |= (shifted != tex_pad)
+
+    # Remove the padding artefacts on the outer ring of is_boundary.
+    # (roll introduces wrap-around; just mask the outer 1-pixel ring.)
+    is_boundary[0, :] = False
+    is_boundary[-1, :] = False
+    is_boundary[:, 0] = False
+    is_boundary[:, -1] = False
+
+    # Crop back to original size.
+    is_boundary = is_boundary[1:-1, 1:-1]
+
+    # distance_transform_cdt expects 0=background (boundary), positive=interior.
+    # Boundary cells should have distance 0; interior cells > 0.
+    interior_mask = (~is_boundary).astype(np.uint8)
+    dist = distance_transform_cdt(interior_mask, metric="chessboard").astype(np.float32)
+    return dist
+
+
+def _compute_soft_blend_present(
+    blend_present: np.ndarray,
+    dist_to_boundary: np.ndarray,
+    flat_idx: np.ndarray,
+    w: int,
+    h: int,
+    label_smooth_pos: float = 0.95,
+    rate_boundary: float = 0.45,
+    rate_near: float = 0.10,
+    rate_interior: float = 0.02,
+) -> np.ndarray:
+    """
+    Compute GeoLS soft targets for blend_present based on distance to texture boundary.
+
+    Parameters
+    ----------
+    blend_present : ndarray, shape (W*H,) or (W, H), uint8
+        Hard binary labels (0 or 1).
+    dist_to_boundary : ndarray, shape (W, H), float32
+        Chebyshev distance to nearest texture boundary (from ``_compute_distance_to_boundary``).
+    flat_idx : ndarray
+        Flat indices into (W*H) for the sampled cells.
+    w, h : int
+        Map dimensions.
+    label_smooth_pos : float
+        Soft target for positive samples (default 0.95).
+    rate_boundary : float
+        Soft target for negative samples ON the boundary (dist=0).  Empirically ~55%
+        of boundary cells have blends, so 45% of negatives are boundary cells
+        without blends.
+    rate_near : float
+        Soft target for negative samples at distance 1 (anticipatory blend zone).
+    rate_interior : float
+        Soft target for negative samples at distance >= 2 (deep interior).
+
+    Returns
+    -------
+    soft : ndarray, shape (len(flat_idx),), float32
+    """
+    bp = np.asarray(blend_present).reshape(-1)[flat_idx].astype(np.float32)
+    dist_flat = dist_to_boundary.reshape(-1)[flat_idx]
+
+    soft = np.where(bp > 0.5, label_smooth_pos, 0.0).astype(np.float32)
+
+    neg_mask = bp < 0.5
+    d0 = neg_mask & (dist_flat == 0)
+    d1 = neg_mask & (dist_flat == 1)
+    d2 = neg_mask & (dist_flat >= 2)
+
+    soft[d0] = rate_boundary
+    soft[d1] = rate_near
+    soft[d2] = rate_interior
+
+    return soft
 
 
 def _labels_for_layer_v3(
@@ -450,6 +557,8 @@ def _extra_signal_features(
     elev_grid: Optional[np.ndarray],
     type_grid: Optional[np.ndarray],
     biome_grid: Optional[np.ndarray],
+    impassable_grid: Optional[np.ndarray],
+    dist_to_boundary: Optional[np.ndarray],
     flat_idx: np.ndarray,
     w: int,
     h: int,
@@ -463,6 +572,7 @@ def _extra_signal_features(
       - 8 binary features: is each neighbor different-biome?
       - Center texture palette index (lower index = higher priority within same type)
       - Relative priority: is center index < min neighbor index with same type?
+      - Distance to texture boundary (center + 5x5 neighborhood grid)
       - elevation slope/curvature (dx, dy, slope_mag, laplacian) if elevation is provided
 
     Returns (extra_feats [N,K] float32, feature_names).
@@ -497,214 +607,453 @@ def _extra_signal_features(
     feats.extend([diff8, diff4])
     names.extend(["tex_diff8", "tex_diff4"])
 
+    # ==================== BOUNDARY SHAPE FEATURES ====================
+    # Critical for direction prediction: encode the SHAPE of the texture boundary.
+    #
+    # FINDING: Direction error scales with boundary complexity:
+    #   - 1 different neighbor: ~1% error (trivial)
+    #   - 4 different neighbors: ~30% error
+    #   - 7 different neighbors: ~50% error
+    #
+    # The model needs to understand boundary geometry, not just counts.
+
+    # Convert 8-bit diff pattern to integer (0-255) and normalized
+    # Each bit represents a neighbor: TL=bit0, T=bit1, ..., BR=bit7
+    diff_pattern_bits = diff_mask.astype(np.uint8)  # [N, 8]
+    diff_pattern_int = np.zeros(len(flat_idx), dtype=np.int32)
+    for bit_idx in range(8):
+        diff_pattern_int |= (diff_pattern_bits[:, bit_idx].astype(np.int32) << bit_idx)
+    feats.append(diff_pattern_int.astype(np.float32) / 255.0)
+    names.append("boundary_pattern_norm")
+
+    # Count "runs" of consecutive different neighbors (boundary shape complexity)
+    # Walking around the ring: TL->T->TR->R->BR->B->BL->L->back to TL
+    # A single edge has 1-3 runs, a corner has 1 run, scattered has many runs
+    ring_order = [0, 1, 2, 4, 7, 6, 5, 3]  # TL, T, TR, R, BR, B, BL, L (clockwise)
+    diff_ring = diff_pattern_bits[:, ring_order]  # [N, 8] in ring order
+
+    # Count transitions from 0->1 (entering a "different" region)
+    transitions = np.zeros(len(flat_idx), dtype=np.int32)
+    for i in range(8):
+        prev_i = (i - 1) % 8
+        # Transition: prev=0 (same), curr=1 (different)
+        is_transition = (diff_ring[:, prev_i] == 0) & (diff_ring[:, i] == 1)
+        transitions += is_transition.astype(np.int32)
+    # Edge case: if first and last are both 1 but we counted a false transition, adjust
+    # Actually, this counts "starts" of runs, which is correct
+    num_runs = transitions.astype(np.float32)
+    # Handle all-same (0 runs) and all-different (1 continuous run)
+    num_runs = np.where(diff8 == 0, 0.0, num_runs)
+    num_runs = np.where(diff8 == 8, 1.0, num_runs)  # All different = 1 continuous boundary
+    feats.append(num_runs / 4.0)  # Normalize (max 4 runs for alternating pattern)
+    names.append("boundary_num_runs")
+
+    # Specific pattern indicators (computed from 8-bit pattern)
+    # These are the most common boundary shapes:
+
+    # Single neighbor different (isolated contact point)
+    is_single_contact = (diff8 == 1).astype(np.float32)
+    feats.append(is_single_contact)
+    names.append("is_single_contact")
+
+    # Corner pattern: exactly 3 consecutive different neighbors (L-shape)
+    # Corners: {TL,T,L}, {T,TR,R}, {R,BR,B}, {B,BL,L}
+    corner_patterns = [
+        [0, 1, 3],  # TL, T, L
+        [1, 2, 4],  # T, TR, R
+        [4, 7, 6],  # R, BR, B
+        [6, 5, 3],  # B, BL, L
+    ]
+    is_corner = np.zeros(len(flat_idx), dtype=np.float32)
+    for corner in corner_patterns:
+        mask = np.ones(len(flat_idx), dtype=bool)
+        for idx in corner:
+            mask &= (diff_pattern_bits[:, idx] == 1)
+        # And all others must be 0
+        for idx in range(8):
+            if idx not in corner:
+                mask &= (diff_pattern_bits[:, idx] == 0)
+        is_corner = np.maximum(is_corner, mask.astype(np.float32))
+    feats.append(is_corner)
+    names.append("is_corner_boundary")
+
+    # Straight edge: 2-4 consecutive same-side neighbors different
+    # Horizontal edges: top row (TL,T,TR) or bottom row (BL,B,BR)
+    # Vertical edges: left col (TL,L,BL) or right col (TR,R,BR)
+    edge_patterns = [
+        [0, 1, 2],     # Top edge: TL, T, TR
+        [5, 6, 7],     # Bottom edge: BL, B, BR
+        [0, 3, 5],     # Left edge: TL, L, BL
+        [2, 4, 7],     # Right edge: TR, R, BR
+    ]
+    is_straight_edge = np.zeros(len(flat_idx), dtype=np.float32)
+    for edge in edge_patterns:
+        mask = np.ones(len(flat_idx), dtype=bool)
+        for idx in edge:
+            mask &= (diff_pattern_bits[:, idx] == 1)
+        # And opposite side must be 0
+        opposite = [i for i in range(8) if i not in edge]
+        for idx in opposite:
+            mask &= (diff_pattern_bits[:, idx] == 0)
+        is_straight_edge = np.maximum(is_straight_edge, mask.astype(np.float32))
+    feats.append(is_straight_edge)
+    names.append("is_straight_edge")
+
+    # Island: center is completely surrounded (all 8 different)
+    is_island = (diff8 == 8).astype(np.float32)
+    feats.append(is_island)
+    names.append("is_island_center")
+
+    # Peninsula: only 1-2 same neighbors (mostly surrounded)
+    is_peninsula = ((diff8 >= 6) & (diff8 <= 7)).astype(np.float32)
+    feats.append(is_peninsula)
+    names.append("is_peninsula")
+
     # ==================== NEW: Texture Type & Biome Features ====================
     # These help the model learn the priority hierarchy for blending:
     # - Which texture TYPE should "receive" the blend
     # - Same-type textures: lower palette index gets the blend
     # - Different-biome textures may not blend at all
-    
-    if type_grid is not None and biome_grid is not None:
-        typ = np.asarray(type_grid, dtype=np.int32, order="C")
-        bio = np.asarray(biome_grid, dtype=np.int32, order="C")
-        typ_pad = np.pad(typ, pad_width=((1, 1), (1, 1)), mode="edge")
-        bio_pad = np.pad(bio, pad_width=((1, 1), (1, 1)), mode="edge")
-        
-        c_type = typ_pad[px, py]  # center type
-        c_biome = bio_pad[px, py]  # center biome
-        
-        # Neighbor types and biomes
-        neigh_type = np.stack([typ_pad[px + dx, py + dy] for dx, dy in _NEIGHBOR_OFFSETS], axis=1)  # [N,8]
-        neigh_biome = np.stack([bio_pad[px + dx, py + dy] for dx, dy in _NEIGHBOR_OFFSETS], axis=1)  # [N,8]
-        
-        # Center type (one-hot would be too many dims, use normalized index instead)
-        n_types = len(_TEX_TYPES)
-        n_biomes = len(_TEX_BIOMES)
-        center_type_norm = c_type.astype(np.float32) / n_types
-        center_biome_norm = c_biome.astype(np.float32) / n_biomes
-        feats.extend([center_type_norm, center_biome_norm])
-        names.extend(["center_type_norm", "center_biome_norm"])
-        
-        # Is each neighbor SAME type but DIFFERENT texture? (same-type blending case)
-        same_type_diff_tex = ((neigh_type == c_type[:, None]) & (neigh8 != c[:, None])).astype(np.float32)  # [N,8]
-        for i in range(8):
-            feats.append(same_type_diff_tex[:, i])
-            names.append(f"same_type_diff_{_NEIGHBOR_NAMES[i]}")
-        
-        # Is each neighbor DIFFERENT type? (cross-type blending case)
-        diff_type_mask = (neigh_type != c_type[:, None]).astype(np.float32)  # [N,8]
-        for i in range(8):
-            feats.append(diff_type_mask[:, i])
-            names.append(f"diff_type_{_NEIGHBOR_NAMES[i]}")
-        
-        # Is each neighbor DIFFERENT biome? (may indicate incompatible pair)
-        diff_biome_mask = (neigh_biome != c_biome[:, None]).astype(np.float32)  # [N,8]
-        for i in range(8):
-            feats.append(diff_biome_mask[:, i])
-            names.append(f"diff_biome_{_NEIGHBOR_NAMES[i]}")
-        
-        # Center texture palette index (normalized) - for priority rule
-        # DISCOVERED: MapGenerator.BlendTextures() uses: if (centerTexture <= tex)
-        # Only add blend if center has lower or equal palette index!
-        center_tex_norm = c.astype(np.float32) / max(tex.max(), 1)
-        feats.append(center_tex_norm)
-        names.append("center_tex_idx_norm")
-        
-        # For each neighbor: is center index <= neighbor index? (the actual blend rule!)
-        # This directly encodes the priority condition from the game's blend algorithm
-        for i in range(8):
-            # Only relevant when textures are different
-            is_diff = neigh8[:, i] != c
-            # The condition for receiving blend: center <= neighbor
-            can_receive = (c <= neigh8[:, i]).astype(np.float32)
-            # Set to 0 when textures are same (no blend possible)
-            can_receive = np.where(is_diff, can_receive, 0.0)
-            feats.append(can_receive)
-            names.append(f"can_blend_{_NEIGHBOR_NAMES[i]}")
-        
-        # Global: count of neighbors where center can receive blend (center <= neighbor)
-        can_blend_count = np.zeros(len(flat_idx), dtype=np.float32)
-        for i in range(8):
-            is_diff = neigh8[:, i] != c
-            can_blend_count += (is_diff & (c <= neigh8[:, i])).astype(np.float32)
-        feats.append(can_blend_count / 8.0)  # Normalized
-        names.append("can_blend_fraction")
-        
-        # Is center the LOWER index among same-type neighbors? (same-type priority signal)
-        # For same-type textures, the palette order determines who blends into whom
-        is_lower_priority = np.zeros(len(flat_idx), dtype=np.float32)
-        for i in range(8):
-            same_type_cond = (neigh_type[:, i] == c_type) & (neigh8[:, i] != c)
-            is_lower = c <= neigh8[:, i]  # Using <= to match the actual rule
-            is_lower_priority += (same_type_cond & is_lower).astype(np.float32)
-        # Normalize by count of same-type different neighbors
-        same_type_count = same_type_diff_tex.sum(axis=1)
-        is_lower_priority = np.where(same_type_count > 0, is_lower_priority / same_type_count, 0.0)
-        feats.append(is_lower_priority)
-        names.append("is_lower_idx_same_type")
-        
-        # ==================== CRITICAL: Rule-based blend prediction ====================
-        # The deterministic rule is: blend_present=1 if center_local < some_different_neighbor_local
-        # This achieves 100% precision on "consistent" maps (those created with standard blend tool).
-        # We encode this directly so the model can learn when to trust vs override it.
-        # NOTE: 'c' is the LOCAL texture index (from tex_grid which comes from decoded tiles).
-        rule_predicts_blend = np.zeros(len(flat_idx), dtype=np.float32)
-        for i in range(8):
-            is_diff = neigh8[:, i] != c
-            is_higher = neigh8[:, i] > c  # Strict: secondary must be HIGHER index
-            rule_predicts_blend = np.maximum(rule_predicts_blend, (is_diff & is_higher).astype(np.float32))
-        feats.append(rule_predicts_blend)
-        names.append("rule_predicts_blend")
-        
-        # Also count how many different neighbors have higher index (strength of rule signal)
-        rule_neighbor_count = np.zeros(len(flat_idx), dtype=np.float32)
-        for i in range(8):
-            is_diff = neigh8[:, i] != c
-            is_higher = neigh8[:, i] > c
-            rule_neighbor_count += (is_diff & is_higher).astype(np.float32)
-        feats.append(rule_neighbor_count / 8.0)
-        names.append("rule_neighbor_fraction")
-        
-        # ==================== PATTERN MATCHING FEATURES ====================
-        # The blend algorithm checks patterns in a specific priority order.
-        # We encode which pattern matches and whether the blend is valid.
-        # This directly tells the model the result of the game's pattern matching.
-        
-        # Get the 4 cardinal + 4 diagonal neighbors
-        # Offsets: TL=0, T=1, TR=2, L=3, R=4, BL=5, B=6, BR=7
-        left = neigh8[:, 3]  # L
-        right = neigh8[:, 4]  # R
-        top = neigh8[:, 1]  # T
-        bottom = neigh8[:, 6]  # B
-        topLeft = neigh8[:, 0]  # TL
-        topRight = neigh8[:, 2]  # TR
-        bottomLeft = neigh8[:, 5]  # BL
-        bottomRight = neigh8[:, 7]  # BR
-        
-        # Compute pattern match result (which tex wins priority, or -1 if none)
-        # Priority order from MapGenerator.BlendTextures
-        pattern_tex = np.full(len(flat_idx), -1, dtype=np.int32)
-        pattern_dir = np.zeros(len(flat_idx), dtype=np.int32)  # encoded direction
-        
-        # Pattern 1: left==top && top!=center -> BottomRight, tex=top
-        mask = (left == top) & (top != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, top, pattern_tex)
-        pattern_dir = np.where(mask, 1, pattern_dir)
-        
-        # Pattern 2: right==top && top!=center -> BottomLeft, tex=top
-        mask = (right == top) & (top != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, top, pattern_tex)
-        pattern_dir = np.where(mask, 2, pattern_dir)
-        
-        # Pattern 3: right==bottom && bottom!=center -> TopLeft, tex=bottom
-        mask = (right == bottom) & (bottom != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, bottom, pattern_tex)
-        pattern_dir = np.where(mask, 3, pattern_dir)
-        
-        # Pattern 4: left==bottom && bottom!=center -> TopRight, tex=bottom
-        mask = (left == bottom) & (bottom != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, bottom, pattern_tex)
-        pattern_dir = np.where(mask, 4, pattern_dir)
-        
-        # Pattern 5-8: Single edges
-        mask = (left != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, left, pattern_tex)
-        pattern_dir = np.where(mask, 5, pattern_dir)
-        
-        mask = (right != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, right, pattern_tex)
-        pattern_dir = np.where(mask, 6, pattern_dir)
-        
-        mask = (top != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, top, pattern_tex)
-        pattern_dir = np.where(mask, 7, pattern_dir)
-        
-        mask = (bottom != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, bottom, pattern_tex)
-        pattern_dir = np.where(mask, 8, pattern_dir)
-        
-        # Pattern 9-12: Diagonals only
-        mask = (topLeft != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, topLeft, pattern_tex)
-        pattern_dir = np.where(mask, 9, pattern_dir)
-        
-        mask = (topRight != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, topRight, pattern_tex)
-        pattern_dir = np.where(mask, 10, pattern_dir)
-        
-        mask = (bottomRight != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, bottomRight, pattern_tex)
-        pattern_dir = np.where(mask, 11, pattern_dir)
-        
-        mask = (bottomLeft != c) & (pattern_tex < 0)
-        pattern_tex = np.where(mask, bottomLeft, pattern_tex)
-        pattern_dir = np.where(mask, 12, pattern_dir)
-        
-        # Key feature: does the pattern-matched tex satisfy center <= tex?
-        # This is the EXACT rule the blend algorithm uses
-        has_pattern = pattern_tex >= 0
-        pattern_valid = has_pattern & (c <= pattern_tex)
-        feats.append(pattern_valid.astype(np.float32))
-        names.append("blend_rule_valid")
-        
-        # Also add the pattern direction as a normalized feature
-        pattern_dir_norm = pattern_dir.astype(np.float32) / 12.0
-        feats.append(pattern_dir_norm)
-        names.append("pattern_dir_norm")
+    #
+    # NOTE: We always emit these features (with zero fallback if grids are missing)
+    # to guarantee a consistent feature count across all maps.
 
+    # Fallback: if type/biome grids are missing, create zero grids so that
+    # the feature count is always the same.  In practice type_grid and biome_grid
+    # are always computed by the caller, but this guards against edge cases.
+    if type_grid is None:
+        type_grid = np.zeros_like(tex_grid, dtype=np.int8)
+    if biome_grid is None:
+        biome_grid = np.zeros_like(tex_grid, dtype=np.int8)
+
+    typ = np.asarray(type_grid, dtype=np.int32, order="C")
+    bio = np.asarray(biome_grid, dtype=np.int32, order="C")
+    typ_pad = np.pad(typ, pad_width=((1, 1), (1, 1)), mode="edge")
+    bio_pad = np.pad(bio, pad_width=((1, 1), (1, 1)), mode="edge")
+
+    c_type = typ_pad[px, py]  # center type
+    c_biome = bio_pad[px, py]  # center biome
+
+    # Neighbor types and biomes
+    neigh_type = np.stack([typ_pad[px + dx, py + dy] for dx, dy in _NEIGHBOR_OFFSETS], axis=1)  # [N,8]
+    neigh_biome = np.stack([bio_pad[px + dx, py + dy] for dx, dy in _NEIGHBOR_OFFSETS], axis=1)  # [N,8]
+
+    # Center type (one-hot would be too many dims, use normalized index instead)
+    n_types = len(_TEX_TYPES)
+    n_biomes = len(_TEX_BIOMES)
+    center_type_norm = c_type.astype(np.float32) / n_types
+    center_biome_norm = c_biome.astype(np.float32) / n_biomes
+    feats.extend([center_type_norm, center_biome_norm])
+    names.extend(["center_type_norm", "center_biome_norm"])
+
+    # Is each neighbor SAME type but DIFFERENT texture? (same-type blending case)
+    same_type_diff_tex = ((neigh_type == c_type[:, None]) & (neigh8 != c[:, None])).astype(np.float32)  # [N,8]
+    for i in range(8):
+        feats.append(same_type_diff_tex[:, i])
+        names.append(f"same_type_diff_{_NEIGHBOR_NAMES[i]}")
+
+    # Is each neighbor DIFFERENT type? (cross-type blending case)
+    diff_type_mask = (neigh_type != c_type[:, None]).astype(np.float32)  # [N,8]
+    for i in range(8):
+        feats.append(diff_type_mask[:, i])
+        names.append(f"diff_type_{_NEIGHBOR_NAMES[i]}")
+
+    # Is each neighbor DIFFERENT biome? (may indicate incompatible pair)
+    diff_biome_mask = (neigh_biome != c_biome[:, None]).astype(np.float32)  # [N,8]
+    for i in range(8):
+        feats.append(diff_biome_mask[:, i])
+        names.append(f"diff_biome_{_NEIGHBOR_NAMES[i]}")
+
+    # Center texture palette index (normalized) - for priority rule
+    # DISCOVERED: MapGenerator.BlendTextures() uses: if (centerTexture <= tex)
+    # Only add blend if center has lower or equal palette index!
+    center_tex_norm = c.astype(np.float32) / max(tex.max(), 1)
+    feats.append(center_tex_norm)
+    names.append("center_tex_idx_norm")
+
+    # For each neighbor: is center index <= neighbor index? (the actual blend rule!)
+    # This directly encodes the priority condition from the game's blend algorithm
+    for i in range(8):
+        # Only relevant when textures are different
+        is_diff = neigh8[:, i] != c
+        # The condition for receiving blend: center <= neighbor
+        can_receive = (c <= neigh8[:, i]).astype(np.float32)
+        # Set to 0 when textures are same (no blend possible)
+        can_receive = np.where(is_diff, can_receive, 0.0)
+        feats.append(can_receive)
+        names.append(f"can_blend_{_NEIGHBOR_NAMES[i]}")
+
+    # Global: count of neighbors where center can receive blend (center <= neighbor)
+    can_blend_count = np.zeros(len(flat_idx), dtype=np.float32)
+    for i in range(8):
+        is_diff = neigh8[:, i] != c
+        can_blend_count += (is_diff & (c <= neigh8[:, i])).astype(np.float32)
+    feats.append(can_blend_count / 8.0)  # Normalized
+    names.append("can_blend_fraction")
+
+    # Is center the LOWER index among same-type neighbors? (same-type priority signal)
+    # For same-type textures, the palette order determines who blends into whom
+    is_lower_priority = np.zeros(len(flat_idx), dtype=np.float32)
+    for i in range(8):
+        same_type_cond = (neigh_type[:, i] == c_type) & (neigh8[:, i] != c)
+        is_lower = c <= neigh8[:, i]  # Using <= to match the actual rule
+        is_lower_priority += (same_type_cond & is_lower).astype(np.float32)
+    # Normalize by count of same-type different neighbors
+    same_type_count = same_type_diff_tex.sum(axis=1)
+    is_lower_priority = np.where(same_type_count > 0, is_lower_priority / same_type_count, 0.0)
+    feats.append(is_lower_priority)
+    names.append("is_lower_idx_same_type")
+
+    # ==================== SAME-TYPE VARIANT FEATURES ====================
+    # FINDING: 57-65% of false negatives are same-type variants!
+    # The model misses blends like Dirt_Yucatan01 -> Dirt_Yucatan02 because
+    # it sees "same type" and thinks no blend is needed.
+    #
+    # Key insight: Same-type variants SHOULD blend when:
+    #   - center has lower palette index than neighbor
+    #   - This is identical to cross-type rule, but model doesn't learn it
+    #
+    # Solution: Add explicit features that highlight same-type blending cases.
+
+    # Count of same-type different-variant neighbors
+    same_type_count_feat = same_type_diff_tex.sum(axis=1)
+    feats.append(same_type_count_feat / 8.0)
+    names.append("same_type_variant_count")
+
+    # Is this a PURE same-type boundary? (no cross-type neighbors)
+    # This is harder to predict because model trained mostly on cross-type
+    any_diff_type = diff_type_mask.max(axis=1)  # 1 if ANY neighbor is different type
+    pure_same_type_boundary = ((same_type_count_feat > 0) & (any_diff_type == 0)).astype(np.float32)
+    feats.append(pure_same_type_boundary)
+    names.append("pure_same_type_boundary")
+
+    # For same-type neighbors: should this cell receive blend? (center < neighbor index)
+    # This is the key signal the model is missing!
+    same_type_should_blend = np.zeros(len(flat_idx), dtype=np.float32)
+    for i in range(8):
+        # Same type, different texture, AND center has strictly lower index
+        should_blend_i = (same_type_diff_tex[:, i] == 1) & (c < neigh8[:, i])
+        same_type_should_blend = np.maximum(same_type_should_blend, should_blend_i.astype(np.float32))
+    feats.append(same_type_should_blend)
+    names.append("same_type_should_blend")
+
+    # Which same-type neighbor has the HIGHEST index? (likely secondary texture)
+    # Encode as one-hot-ish: for each direction, is it the max same-type neighbor?
+    same_type_neighbor_idx = np.where(same_type_diff_tex == 1, neigh8, -1)  # [N, 8]
+    max_same_type_idx = same_type_neighbor_idx.max(axis=1)  # [N]
+    for i in range(8):
+        is_max_same_type = (same_type_neighbor_idx[:, i] == max_same_type_idx) & (same_type_neighbor_idx[:, i] >= 0)
+        feats.append(is_max_same_type.astype(np.float32))
+        names.append(f"max_same_type_{_NEIGHBOR_NAMES[i]}")
+
+    # ==================== CRITICAL: Rule-based blend prediction ====================
+    # The deterministic rule is: blend_present=1 if center_local < some_different_neighbor_local
+    # This achieves 100% precision on "consistent" maps (those created with standard blend tool).
+    # We encode this directly so the model can learn when to trust vs override it.
+    # NOTE: 'c' is the LOCAL texture index (from tex_grid which comes from decoded tiles).
+    rule_predicts_blend = np.zeros(len(flat_idx), dtype=np.float32)
+    for i in range(8):
+        is_diff = neigh8[:, i] != c
+        is_higher = neigh8[:, i] > c  # Strict: secondary must be HIGHER index
+        rule_predicts_blend = np.maximum(rule_predicts_blend, (is_diff & is_higher).astype(np.float32))
+    feats.append(rule_predicts_blend)
+    names.append("rule_predicts_blend")
+
+    # Also count how many different neighbors have higher index (strength of rule signal)
+    rule_neighbor_count = np.zeros(len(flat_idx), dtype=np.float32)
+    for i in range(8):
+        is_diff = neigh8[:, i] != c
+        is_higher = neigh8[:, i] > c
+        rule_neighbor_count += (is_diff & is_higher).astype(np.float32)
+    feats.append(rule_neighbor_count / 8.0)
+    names.append("rule_neighbor_fraction")
+
+    # ==================== PATTERN MATCHING FEATURES ====================
+    # The blend algorithm checks patterns in a specific priority order.
+    # We encode which pattern matches and whether the blend is valid.
+    # This directly tells the model the result of the game's pattern matching.
+
+    # Get the 4 cardinal + 4 diagonal neighbors
+    # Offsets: TL=0, T=1, TR=2, L=3, R=4, BL=5, B=6, BR=7
+    left = neigh8[:, 3]  # L
+    right = neigh8[:, 4]  # R
+    top = neigh8[:, 1]  # T
+    bottom = neigh8[:, 6]  # B
+    topLeft = neigh8[:, 0]  # TL
+    topRight = neigh8[:, 2]  # TR
+    bottomLeft = neigh8[:, 5]  # BL
+    bottomRight = neigh8[:, 7]  # BR
+
+    # Compute pattern match result (which tex wins priority, or -1 if none)
+    # Priority order from MapGenerator.BlendTextures
+    pattern_tex = np.full(len(flat_idx), -1, dtype=np.int32)
+    pattern_dir = np.zeros(len(flat_idx), dtype=np.int32)  # encoded direction
+
+    # Pattern 1: left==top && top!=center -> BottomRight, tex=top
+    mask = (left == top) & (top != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, top, pattern_tex)
+    pattern_dir = np.where(mask, 1, pattern_dir)
+
+    # Pattern 2: right==top && top!=center -> BottomLeft, tex=top
+    mask = (right == top) & (top != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, top, pattern_tex)
+    pattern_dir = np.where(mask, 2, pattern_dir)
+
+    # Pattern 3: right==bottom && bottom!=center -> TopLeft, tex=bottom
+    mask = (right == bottom) & (bottom != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, bottom, pattern_tex)
+    pattern_dir = np.where(mask, 3, pattern_dir)
+
+    # Pattern 4: left==bottom && bottom!=center -> TopRight, tex=bottom
+    mask = (left == bottom) & (bottom != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, bottom, pattern_tex)
+    pattern_dir = np.where(mask, 4, pattern_dir)
+
+    # Pattern 5-8: Single edges
+    mask = (left != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, left, pattern_tex)
+    pattern_dir = np.where(mask, 5, pattern_dir)
+
+    mask = (right != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, right, pattern_tex)
+    pattern_dir = np.where(mask, 6, pattern_dir)
+
+    mask = (top != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, top, pattern_tex)
+    pattern_dir = np.where(mask, 7, pattern_dir)
+
+    mask = (bottom != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, bottom, pattern_tex)
+    pattern_dir = np.where(mask, 8, pattern_dir)
+
+    # Pattern 9-12: Diagonals only
+    mask = (topLeft != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, topLeft, pattern_tex)
+    pattern_dir = np.where(mask, 9, pattern_dir)
+
+    mask = (topRight != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, topRight, pattern_tex)
+    pattern_dir = np.where(mask, 10, pattern_dir)
+
+    mask = (bottomRight != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, bottomRight, pattern_tex)
+    pattern_dir = np.where(mask, 11, pattern_dir)
+
+    mask = (bottomLeft != c) & (pattern_tex < 0)
+    pattern_tex = np.where(mask, bottomLeft, pattern_tex)
+    pattern_dir = np.where(mask, 12, pattern_dir)
+
+    # Key feature: does the pattern-matched tex satisfy center <= tex?
+    # This is the EXACT rule the blend algorithm uses
+    has_pattern = pattern_tex >= 0
+    pattern_valid = has_pattern & (c <= pattern_tex)
+    feats.append(pattern_valid.astype(np.float32))
+    names.append("blend_rule_valid")
+
+    # Also add the pattern direction as a normalized feature
+    pattern_dir_norm = pattern_dir.astype(np.float32) / 12.0
+    feats.append(pattern_dir_norm)
+    names.append("pattern_dir_norm")
+
+    # ==================== PASSABILITY FEATURES ====================
+    # HIGH IMPACT: Blends don't cross impassable terrain (cliffs/walls).
+    # This is a hard constraint we encode as features.
+    # NOTE: Always emit passability features (with zero fallback if grid is missing)
+    # to guarantee a consistent feature count across all maps.
+    if impassable_grid is None:
+        # Fallback: treat everything as passable (all zeros).
+        impassable_grid = np.zeros((w, h), dtype=np.bool_)
+
+    imp = np.asarray(impassable_grid, dtype=np.bool_, order="C")
+    imp_pad = np.pad(imp, pad_width=((1, 1), (1, 1)), mode="constant", constant_values=False)
+
+    # Center impassability
+    center_imp = imp_pad[px, py].astype(np.float32)
+    feats.append(center_imp)
+    names.append("center_impassable")
+
+    # 8-neighbor impassability
+    neigh_imp = np.stack([imp_pad[px + dx, py + dy] for dx, dy in _NEIGHBOR_OFFSETS], axis=1)  # [N,8]
+    for i in range(8):
+        feats.append(neigh_imp[:, i].astype(np.float32))
+        names.append(f"impassable_{_NEIGHBOR_NAMES[i]}")
+
+    # Aggregate: any neighbor impassable (hard boundary signal)
+    any_imp = neigh_imp.any(axis=1).astype(np.float32)
+    feats.append(any_imp)
+    names.append("any_neighbor_impassable")
+
+    # Count of impassable neighbors (normalized)
+    imp_count = neigh_imp.sum(axis=1).astype(np.float32) / 8.0
+    feats.append(imp_count)
+    names.append("impassable_neighbor_fraction")
+
+    # Blend rule should not apply across impassable boundaries
+    # For each neighbor: if it's impassable, blend rule is invalid
+    for i in range(8):
+        is_diff = neigh8[:, i] != c
+        can_blend_if_passable = (c <= neigh8[:, i]) & is_diff
+        # Mask out if neighbor is impassable
+        blend_valid_passable = can_blend_if_passable & ~neigh_imp[:, i]
+        feats.append(blend_valid_passable.astype(np.float32))
+        names.append(f"can_blend_passable_{_NEIGHBOR_NAMES[i]}")
+
+    # ==================== DISTANCE-TO-TEXTURE-BOUNDARY FEATURES ====================
+    # Chebyshev distance to the nearest texture boundary for each cell.
+    # Key insight: blend probability drops sharply with distance from boundary.
+    # - Distance 0 (ON boundary): ~55% of cells have blends
+    # - Distance 1 (near boundary): ~10% (anticipatory blends)
+    # - Distance >= 2 (interior): ~2% (very rare)
+    #
+    # We include both the center cell distance and the full 5x5 neighborhood
+    # distance grid for richer spatial context.
+    if dist_to_boundary is not None:
+        dtb = np.asarray(dist_to_boundary, dtype=np.float32)
+    else:
+        # Fallback: compute it on the fly (should not happen in normal usage)
+        dtb = _compute_distance_to_boundary(tex_grid)
+
+    # Center cell distance (single scalar, capped at 10 and normalized)
+    center_dist = dtb.reshape(-1)[flat_idx]
+    center_dist_capped = np.minimum(center_dist, 10.0) / 10.0
+    feats.append(center_dist_capped)
+    names.append("dist_to_boundary")
+
+    # 5x5 neighborhood distance grid (25 values, capped and normalized)
+    # Use same padding strategy as for texture windows
+    win = 5  # neighborhood window size (fixed for this feature)
+    dtb_pad = np.pad(dtb, pad_width=((2, 2), (2, 2)), mode="edge")
+    dtb_windows = np.lib.stride_tricks.sliding_window_view(dtb_pad, (win, win))
+    dtb_flat = dtb_windows.reshape(w * h, win * win)
+    dtb_sampled = dtb_flat[flat_idx]
+    dtb_sampled = np.minimum(dtb_sampled, 10.0) / 10.0
+    for idx_5x5 in range(win * win):
+        r, cc = divmod(idx_5x5, win)
+        feats.append(dtb_sampled[:, idx_5x5])
+        names.append(f"dist_to_boundary_{r}_{cc}")
+
+    # ==================== ELEVATION FEATURES ====================
+    # Always emit elevation features (with zero fallback if grid is missing)
+    # to guarantee a consistent feature count across all maps.
     if elev_grid is not None:
         z = np.asarray(elev_grid, dtype=np.float32, order="C")
         zpad = np.pad(z, pad_width=((1, 1), (1, 1)), mode="edge")
         cz = zpad[px, py]
-        left = zpad[px - 1, py]
-        right = zpad[px + 1, py]
-        up = zpad[px, py - 1]
-        down = zpad[px, py + 1]
-        dx = (right - left) * 0.5
-        dy = (down - up) * 0.5
+        zleft = zpad[px - 1, py]
+        zright = zpad[px + 1, py]
+        zup = zpad[px, py - 1]
+        zdown = zpad[px, py + 1]
+        dx = (zright - zleft) * 0.5
+        dy = (zdown - zup) * 0.5
         slope = np.sqrt(dx * dx + dy * dy)
-        lap = (up + down + left + right) - (4.0 * cz)
+        lap = (zup + zdown + zleft + zright) - (4.0 * cz)
 
         feats.extend([dx, dy, slope, lap])
+        names.extend(["elev_dx", "elev_dy", "elev_slope", "elev_laplacian"])
+    else:
+        # Fallback: zero elevation features so feature count is always consistent
+        n = len(flat_idx)
+        feats.extend([np.zeros(n, dtype=np.float32)] * 4)
         names.extend(["elev_dx", "elev_dy", "elev_slope", "elev_laplacian"])
 
     extra = np.stack(feats, axis=1).astype(np.float32, copy=False)
@@ -860,6 +1209,9 @@ def main() -> int:
     ysm_parts: List[np.ndarray] = []
     yss_parts: List[np.ndarray] = []
     ysd_parts: List[np.ndarray] = []
+    # GeoLS soft targets for blend_present (float32, distance-weighted)
+    ybp_soft_parts: List[np.ndarray] = []
+    ysp_soft_parts: List[np.ndarray] = []
     map_id_parts: List[np.ndarray] = []
 
     meta: Dict[str, object] = {
@@ -958,17 +1310,37 @@ def main() -> int:
         # Extra per-cell signals (computed on sampled indices)
         extra_s = None
         extra_names: List[str] = []
+        # Get impassable grid from BlendTileData (HIGH IMPACT feature)
+        impassable_grid = None
+        if hasattr(b, 'impassable') and b.impassable is not None:
+            impassable_grid = np.asarray(b.impassable, dtype=np.bool_)
+
+        # Pre-compute distance-to-texture-boundary for the full map
+        dist_to_boundary_grid = _compute_distance_to_boundary(tex_grid)
+
         if not bool(args.no_extra_signal):
             extra_s, extra_names = _extra_signal_features(
                 tex_grid=tex_grid,
                 elev_grid=elev_grid,
                 type_grid=type_grid,
                 biome_grid=biome_grid,
+                impassable_grid=impassable_grid,
+                dist_to_boundary=dist_to_boundary_grid,
                 flat_idx=flat_idx,
                 w=w,
                 h=h,
             )
             Xs = np.concatenate([Xs.astype(np.float32, copy=False), extra_s], axis=1)
+
+        # Compute GeoLS soft targets for blend_present based on boundary distance.
+        # These are always computed (independent of --no-extra-signal) so training
+        # can optionally use them for the ASL/GeoLS loss.
+        ybp_soft_s = _compute_soft_blend_present(
+            ybp, dist_to_boundary_grid, flat_idx, w, h,
+        )
+        ysp_soft_s = _compute_soft_blend_present(
+            ysp, dist_to_boundary_grid, flat_idx, w, h,
+        )
 
         # sample-level rotation augmentation (fast; avoids full-map rotation)
         if rotations:
@@ -992,12 +1364,19 @@ def main() -> int:
             rep = 1 + len(rotations)
             ybp_s = np.tile(ybp_s, rep)
             ysp_s = np.tile(ysp_s, rep)
+            # Soft targets are also rotation-invariant (scalar per cell)
+            ybp_soft_s = np.tile(ybp_soft_s, rep)
+            ysp_soft_s = np.tile(ysp_soft_s, rep)
 
         X_parts.append(Xs)
         ybp_parts.append(ybp_s)
         ybd_parts.append(ybd_s)
         ysp_parts.append(ysp_s)
         ysd_parts.append(ysd_s)
+
+        # GeoLS soft targets
+        ybp_soft_parts.append(ybp_soft_s)
+        ysp_soft_parts.append(ysp_soft_s)
 
         # New mask labels (uint8 bitmask, 255=ignore)
         ybm_parts.append(ybm_s)
@@ -1082,6 +1461,8 @@ def main() -> int:
         ysm_all = np.concatenate(ysm_parts, axis=0)[perm]
         yss_all = np.concatenate(yss_parts, axis=0)[perm]
         ysd_all = np.concatenate(ysd_parts, axis=0)[perm]
+        ybp_soft_all = np.concatenate(ybp_soft_parts, axis=0)[perm]
+        ysp_soft_all = np.concatenate(ysp_soft_parts, axis=0)[perm]
         map_id_all = np.concatenate(map_id_parts, axis=0)[perm]
     else:
         ybp_all = np.concatenate(ybp_parts, axis=0)
@@ -1092,6 +1473,8 @@ def main() -> int:
         ysm_all = np.concatenate(ysm_parts, axis=0)
         yss_all = np.concatenate(yss_parts, axis=0)
         ysd_all = np.concatenate(ysd_parts, axis=0)
+        ybp_soft_all = np.concatenate(ybp_soft_parts, axis=0)
+        ysp_soft_all = np.concatenate(ysp_soft_parts, axis=0)
         map_id_all = np.concatenate(map_id_parts, axis=0)
 
     out_path = Path(args.out)
@@ -1107,6 +1490,8 @@ def main() -> int:
         y_se_mask=ysm_all,
         y_se_sec=yss_all,
         y_se_dir=ysd_all,
+        y_blend_present_soft=ybp_soft_all,
+        y_se_present_soft=ysp_soft_all,
         map_id=map_id_all,
     )
     print(f"Wrote dataset: {out_path} (samples={X.shape[0]}, feat_dim={X.shape[1]})")
@@ -1125,6 +1510,13 @@ def main() -> int:
         "y_se_sec": "neighbor_index_first",
         "neighbor_names": _NEIGHBOR_NAMES,  # ["TL", "T", "TR", "L", "R", "BL", "B", "BR"]
         "num_neighbor_classes": 8,
+        # GeoLS soft targets for blend_present (float32).
+        # Training can use these instead of hard binary labels for
+        # better calibration near texture boundaries.
+        # Values: 0.95 (positive), 0.45 (neg on boundary), 0.10 (neg near boundary),
+        #         0.02 (neg interior).
+        "y_blend_present_soft": "geols_soft_f32",
+        "y_se_present_soft": "geols_soft_f32",
     }
     # Document texture type and biome vocabularies (used for priority features)
     meta["texture_type_vocab"] = _TEX_TYPES

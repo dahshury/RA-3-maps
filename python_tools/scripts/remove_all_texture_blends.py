@@ -55,7 +55,9 @@ def main() -> int:
     if blend.single_edge_blends is not None:
         blend.single_edge_blends = np.zeros_like(blend.single_edge_blends, dtype=np.uint16)
 
-    # Keep blend_info and blends_count unchanged (matches observed WB output behavior)
+    # Keep blend_info, blends_count, and original raw bytes unchanged
+    # IMPORTANT: Original raw bytes must be preserved (they contain metadata values 2/3
+    # that WorldBuilder requires - recomputing to 0/1 only causes crashes)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     m.save(str(out_path), compress=(not args.no_compress))
     print(f"Wrote blendless map: {out_path}")
