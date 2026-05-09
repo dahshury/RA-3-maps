@@ -8,8 +8,9 @@ blendinfo dataset/_pruned/
 blendinfo dataset/Command & Conquer Red Alert 3/
 blendinfo dataset/Command & Conquer Red Alert 3 Uprising/
 
-# Map files
+# Map files (templates inside ra3_map_toolkit are intentionally tracked)
 *.map
+!ra3_map_toolkit/_internal/templates/**/*.map
 
 # Python artifacts
 uv.lock
@@ -54,8 +55,16 @@ RA3 Official maps/
 # Large reference data and packaged tool binaries
 side/
 wb/
-ra3_map_toolkit/
 node_modules/
+
+# ra3_map_toolkit: keep source/build files, exclude binaries, venv, pycache, and map data dirs
+ra3_map_toolkit/_internal/*.exe
+ra3_map_toolkit/_internal/.venv/
+ra3_map_toolkit/_internal/venv/
+ra3_map_toolkit/_internal/**/__pycache__/
+ra3_map_toolkit/_internal/tui/node_modules/
+ra3_map_toolkit/converted_maps/
+ra3_map_toolkit/maps_to_convert/
 
 # Python tool preview/output dirs
 python_tools/_retex_preview/
